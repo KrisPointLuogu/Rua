@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Luxaohi/Luxaohi.vcxproj" Id="c597d166-43ea-451a-8c01-9784d79cc099" />
+</Solution>
