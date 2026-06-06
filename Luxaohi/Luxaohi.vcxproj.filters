@@ -18,5 +18,19 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="工具合集.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="输出彩色支持.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="异常上报.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="工具合集.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

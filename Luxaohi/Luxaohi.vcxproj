@@ -142,6 +142,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="工具合集.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="工具合集.h" />
+    <ClInclude Include="异常上报.h" />
+    <ClInclude Include="输出彩色支持.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
