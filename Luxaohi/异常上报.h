@@ -14,7 +14,7 @@ inline void 异常处理(
     const string& 角色="刘小黑"
 ) {
 
-    string 信息拼接 = 角色 + string("[") + 信息 + "]";
+    string 信息拼接 = string("[") + 角色 + "]" + 信息;
     
     switch (等级) {
     case 1:

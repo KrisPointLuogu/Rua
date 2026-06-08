@@ -142,9 +142,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="REPL.cpp" />
     <ClCompile Include="工具合集.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="REPL.h" />
     <ClInclude Include="工具合集.h" />
     <ClInclude Include="异常上报.h" />
     <ClInclude Include="输出彩色支持.h" />

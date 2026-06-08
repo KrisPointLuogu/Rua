@@ -1,6 +1,8 @@
-#include<iostream>
-using namespace std;
+#include "REPL.h"
+
 int main(){
-	cout << "Hello World!" << endl;
+
+	交互与执行();
+
 	return 0;
 }
