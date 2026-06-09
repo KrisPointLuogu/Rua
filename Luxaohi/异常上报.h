@@ -1,8 +1,8 @@
-#ifndef 异常上报_H
-#define 异常上报_H
+#pragma once
 #include "输出彩色支持.h"
 #include <stdexcept>
 #include <string>
+
 using std::string;
 using std::runtime_error;
 
@@ -46,5 +46,3 @@ inline void 异常处理(
         break;
     }
 }
-
-#endif

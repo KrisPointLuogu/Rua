@@ -1,5 +1,4 @@
-#ifndef 输出彩色支持_H
-#define 输出彩色支持_H
+#pragma once
 #include <cstdio>
 #include <string>
 #include <unordered_map>
@@ -96,5 +95,3 @@ inline void 输出文本(
         putchar('\n');
     }
 }
-
-#endif

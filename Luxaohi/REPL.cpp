@@ -2,6 +2,7 @@
 #include <iostream>
 #include "输出彩色支持.h"
 #include "工具合集.h"
+#include "词法分析器.h"
 
 using std::string;
 
@@ -42,9 +43,10 @@ void 退出() {
 	exit(0);
 }
 
-void 简单分析行(string& 行) {
-	if (行 == "") return;
+bool 简单分析行(string& 行) {
+	if (行 == "") return 0;
 	else if (行 == "EOF") 退出();
+	return 1;
 }
 
 void 交互与执行() {
@@ -52,6 +54,6 @@ void 交互与执行() {
 	while (1) {
 		string 行;
 		行 = 输入();
-		简单分析行(行);
+		if(简单分析行(行)) 词法分析器类 分析实例(行);
 	}
 }

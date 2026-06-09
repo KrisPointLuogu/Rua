@@ -73,7 +73,7 @@ string 获取系统用户名() {
 }
 
 
-int 生成随机数(const int& 左边, const int& 右边) {
+int 生成随机数(const int 左边, const int 右边) {
     // 获取种子
     std::random_device 种子;
 

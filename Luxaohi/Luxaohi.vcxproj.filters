@@ -24,6 +24,9 @@
     <ClCompile Include="REPL.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="词法分析器.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="输出彩色支持.h">
@@ -36,6 +39,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="REPL.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="词法分析器.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
