@@ -1,6 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "词法分析器.h"
-#include "异常上报.h"
+#include "工具合集.h"
 #include <vector>
 #include <string>
 #include <cctype>
@@ -34,6 +34,7 @@ vector<词法分析器类::令牌> 词法分析器类::分析() {
 			continue;
 		}
 
+		// 这里是注释相关的
 		if(位置_+1 < 代码_.size()){
 			// 防越界
 
@@ -46,8 +47,11 @@ vector<词法分析器类::令牌> 词法分析器类::分析() {
 			}
 			else if (代码_[位置_] == '#' && 代码_[位置_ + 1] == '*') {
 				// 多行注释
-				bool 闭合了 = false;
-				// 下次从这里继续喵
+				
+				位置_++; 列位置_++;
+				返回内容 结果 = ab匹配(代码_,位置_,行位置_,列位置_,'*','*');
+				if (结果 == ab没有闭合) ;
+				continue;
 			}
 		}
 

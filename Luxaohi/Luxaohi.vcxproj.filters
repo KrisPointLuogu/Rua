@@ -30,6 +30,9 @@
     <ClCompile Include="功能实现.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="信息上报.h">
+      <Filter>头文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="输出彩色支持.h">
