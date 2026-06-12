@@ -150,6 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="REPL.h" />
+    <ClInclude Include="utf8.h" />
     <ClInclude Include="功能实现.h" />
     <ClInclude Include="工具合集.h" />
     <ClInclude Include="异常上报.h" />

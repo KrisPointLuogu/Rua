@@ -31,7 +31,7 @@ public:
     std::vector<令牌> 分析();
 
 private:
-    std::string 代码_; // 输入的源代码
+    std::u32string 代码_; // 输入的源代码，这里转UTF-32，这样之后就不用费劲处理中英符号字节大小差异了！
     size_t 位置_;
     int 行位置_;
     int 列位置_;
