@@ -25,6 +25,7 @@
 #include <string>
 
 using std::string;
+using std::u32string;
 
 void 初始化窗口() {
 
@@ -86,13 +87,13 @@ int 生成随机数(const int 左边, const int 右边) {
 }
 
 返回内容 ab匹配(
-    u32string& 代码_,
+    const u32string& 代码_,
     size_t& 位置_,
     int& 行位置_,
     int& 列位置_,
     const char32_t a边,
     const char32_t b边,
-    bool 回退 = false
+    bool 回退
 ) {
 
     size_t 位置 = 位置_;
@@ -141,7 +142,7 @@ int 生成随机数(const int 左边, const int 右边) {
 }
 
 u32string ab匹配字符串令牌(
-    u32string& 代码_,
+    const u32string& 代码_,
     size_t& 位置_,
     int& 行位置_,
     int& 列位置_,

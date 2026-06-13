@@ -24,7 +24,7 @@ public:
         std::u32string 内容_;
         int 行位置_;
         int 列位置_;
-        令牌(令牌类型 t, string v, int l, int c); // 构造函数，简化写法
+        令牌(令牌类型 t, std::u32string v, int l, int c); // 构造函数，简化写法
     };
 
     词法分析器类(const string& 代码);

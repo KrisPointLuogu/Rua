@@ -9,7 +9,7 @@ enum 信息内容 {
     不存在的命令
 };
 
-void 信息上报(const 信息内容 信息, const int 行位置_, const int 列位置_) {
+inline void 信息上报(const 信息内容 信息, const int 行位置_, const int 列位置_) {
     string 报出信息 = "";
 
     switch(信息){
