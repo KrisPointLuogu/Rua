@@ -21,7 +21,7 @@ public:
     // 一个token包含什么
     struct 令牌 {
         令牌类型 类型_;
-        string 内容_;
+        std::u32string 内容_;
         int 行位置_;
         int 列位置_;
         令牌(令牌类型 t, string v, int l, int c); // 构造函数，简化写法
