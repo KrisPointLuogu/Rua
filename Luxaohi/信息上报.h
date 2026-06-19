@@ -6,7 +6,9 @@ using std::string;
 
 enum 信息内容 {
     ab没有闭合,
-    不存在的命令
+    不存在的命令,
+    非法UTF8起始字节,
+    UTF8序列不完整
 };
 
 inline void 信息上报(const 信息内容 信息, const int 行位置_, const int 列位置_) {
@@ -17,6 +19,10 @@ inline void 信息上报(const 信息内容 信息, const int 行位置_, const 
         报出信息 = "字符串没有闭合呐"; break;
     case 不存在的命令:
         报出信息 = "命令不存在呢"; break;
+    case 非法UTF8起始字节:
+        报出信息 = "有无法解析的不合理UTF8起始字节..."; break;
+    case UTF8序列不完整:
+        报出信息 = "需要解析的UTF8字符串可能断掉了呢"; break;
     }
 
     异常处理(报出信息, 行位置_, 列位置_,警告);
