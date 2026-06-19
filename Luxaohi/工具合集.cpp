@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
+﻿#define _CRT_SECURE_NO_WARNINGS
 
 #if defined(_WIN64)
 #define IS_WINDOWS 1

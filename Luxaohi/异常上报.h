@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "输出彩色支持.h"
 #include <stdexcept>
 #include <string>

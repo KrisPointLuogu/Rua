@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
+﻿#define _CRT_SECURE_NO_WARNINGS
 #include "词法分析器.h"
 #include "工具合集.h"
 #include "信息上报.h"
