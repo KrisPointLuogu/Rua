@@ -56,5 +56,8 @@
     <ClInclude Include="功能实现.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="UTF32支持.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

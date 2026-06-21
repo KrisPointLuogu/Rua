@@ -31,7 +31,7 @@ void 初始化窗口() {
 
 #if defined(IS_WINDOWS)
     // 窗口标题
-    SetConsoleTitle(L"Luxaohi—X.X.X解释器");
+    SetConsoleTitle(L"Rua—X.X.X解释器");
     // 输出与输入UTF8
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
@@ -44,7 +44,7 @@ void 初始化窗口() {
 
 #elif defined(IS_LINUX) || defined(IS_MACOS)
     // 窗口标题
-    printf("\033]0;Luxaohi—X.X.X解释器\007");
+    printf("\033]0;Rua—X.X.X解释器\007");
     fflush(stdout);
     // 输出与输入UTF8
     std::setlocale(LC_ALL, "");

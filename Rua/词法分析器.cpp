@@ -2,7 +2,7 @@
 #include "词法分析器.h"
 #include "工具合集.h"
 #include "信息上报.h"
-//#include "utf8.h"  移除了，下面报错什么的地方之后会改
+#include "UTF32支持.h"
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -15,7 +15,7 @@ using std::unordered_map;
 // 构造函数
 词法分析器类::令牌::令牌(令牌类型 t, u32string v, int l, int c) : 类型_(t), 内容_(std::move(v)), 行位置_(l), 列位置_(c) {}
 词法分析器类::词法分析器类(const string& 代码) : 代码_(), 位置_(0), 行位置_(1), 列位置_(1) {
-	utf8::utf8to32(代码.begin(), 代码.end(), std::back_inserter(代码_)); // 用第三方库来把UTF8转UTF32
+	u32string 代码_ = UTF8转UTF32(代码); // 自己写的工具！
 }
 
 vector<词法分析器类::令牌> 词法分析器类::分析() {
