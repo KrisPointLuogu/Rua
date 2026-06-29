@@ -124,3 +124,57 @@ u32string UTF8转UTF32(const string& UTF8) {
 	// 输出！
 	return 输出;
 }
+
+
+string UTF32转UTF8(const u32string& UTF32) {
+
+	string 输出;
+	输出.reserve(UTF32.length() * 4);// 预分配空间
+
+	for (char32_t 码点 : UTF32) {
+
+		if (码点 <= 0x7F) {
+			// 1字节
+			输出.push_back(static_cast<char>(码点));
+			// C++风格的static_cast<char>更安全，也更规范
+		}
+		else if (码点 <= 0x7FF) {
+			// 2字节
+			unsigned char 字节1 = 0xC0 | ((码点 >> 6) & 0x1F);
+			unsigned char 字节2 = 0x80 | (码点 & 0x3F);
+			输出.push_back(static_cast<char>(字节1));
+			输出.push_back(static_cast<char>(字节2));
+		}
+		else if (码点 <= 0xFFFF) {
+			// 3字节
+			unsigned char 字节1 = 0xE0 | ((码点 >> 12) & 0x0F);
+			unsigned char 字节2 = 0x80 | ((码点 >> 6) & 0x3F);
+			unsigned char 字节3 = 0x80 | (码点 & 0x3F);
+			输出.push_back(static_cast<char>(字节1));
+			输出.push_back(static_cast<char>(字节2));
+			输出.push_back(static_cast<char>(字节3));
+		}
+		else if (码点 <= 0x10FFFF) {
+			// 4字节
+			unsigned char 字节1 = 0xF0 | ((码点 >> 18) & 0x07);
+			unsigned char 字节2 = 0x80 | ((码点 >> 12) & 0x3F);
+			unsigned char 字节3 = 0x80 | ((码点 >> 6) & 0x3F);
+			unsigned char 字节4 = 0x80 | (码点 & 0x3F);
+			输出.push_back(static_cast<char>(字节1));
+			输出.push_back(static_cast<char>(字节2));
+			输出.push_back(static_cast<char>(字节3));
+			输出.push_back(static_cast<char>(字节4));
+		}
+		else {
+			// 码点超出Unicode上限的情况
+			信息上报(码点大小超出Unicode最大值, -1, -1);
+			// 用替换字符 U+FFFD 替代
+			输出.push_back(static_cast<char>(0xEF));
+			输出.push_back(static_cast<char>(0xBF));
+			输出.push_back(static_cast<char>(0xBD));
+		}
+
+	}
+	// 完成，输出！
+	return 输出;
+}
