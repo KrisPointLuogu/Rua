@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <string>
 #include <unordered_map>
+
 using std::unordered_map;
 using std::string;
 
@@ -86,12 +87,8 @@ inline void 输出文本(
     // 添加文本和重置码
     输出缓冲区 += 文本;
     输出缓冲区 += "\033[0m";
+    if (换行) 输出缓冲区 += "\n"; // 换行处理
 
     // 一次性输出
-    printf("%s", 输出缓冲区.c_str());
-
-    // 换行处理
-    if (换行) {
-        putchar('\n');
-    }
+    fputs(输出缓冲区.c_str(), stdout);
 }

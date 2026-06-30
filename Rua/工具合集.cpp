@@ -17,6 +17,13 @@
 
 #endif
 
+#ifdef _DEBUG
+#else
+    #pragma comment(lib, "advapi32.lib")
+#endif
+
+#define 窗口名称 "Rua—X.X.X解释器"
+
 // cstring 和 locale 别删，Windows平台没用才显示未使用
 #include "工具合集.h"
 #include <cstring>
@@ -28,10 +35,9 @@ using std::string;
 using std::u32string;
 
 void 初始化窗口() {
-
 #if defined(IS_WINDOWS)
     // 窗口标题
-    SetConsoleTitle(L"Rua—X.X.X解释器");
+    SetConsoleTitle(TEXT(窗口名称));
     // 输出与输入UTF8
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
@@ -44,7 +50,7 @@ void 初始化窗口() {
 
 #elif defined(IS_LINUX) || defined(IS_MACOS)
     // 窗口标题
-    printf("\033]0;Rua—X.X.X解释器\007");
+    printf("\033]0;%s\007", 窗口名称);
     fflush(stdout);
     // 输出与输入UTF8
     std::setlocale(LC_ALL, "");
@@ -206,3 +212,4 @@ bool 可用于标识符字符(char32_t 字符_) {
         字符_ == U'_' ||
         (字符_ >= U'一' && 字符_ <= U'龥');
 }
+
