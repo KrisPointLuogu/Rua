@@ -3,6 +3,7 @@
 #include <windows.h>
 
 int main(){
+
 #ifdef _DEBUG
 	#pragma message("当前处于DEBUG编译模式，调试功能将开启")
 #endif
