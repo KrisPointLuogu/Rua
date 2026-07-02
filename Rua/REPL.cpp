@@ -3,6 +3,7 @@
 #include "输出彩色支持.h"
 #include "工具合集.h"
 #include "词法分析器.h"
+#include "UTF32支持.h"
 
 #ifdef _DEBUG
 	#include "调试输出支持.h"

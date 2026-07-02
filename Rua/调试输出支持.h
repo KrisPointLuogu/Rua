@@ -7,7 +7,7 @@ using std::unordered_map;
 using std::string;
 
 #ifdef _DEBUG
-    void 调试输出(
+    inline void 调试输出(
         string 信息,
         const string& 颜色 = "WW",
         bool 换行 = true,
