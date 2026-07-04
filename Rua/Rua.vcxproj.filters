@@ -18,9 +18,6 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="工具合集.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="REPL.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -44,9 +41,6 @@
     <ClInclude Include="异常上报.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="工具合集.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="REPL.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -60,6 +54,15 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="调试输出支持.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="main.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="全局内容.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="平台检测.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

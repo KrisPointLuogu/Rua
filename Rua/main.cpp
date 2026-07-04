@@ -1,12 +1,17 @@
 ﻿#include "REPL.h"
-#include "工具合集.h"
-#include <windows.h>
+#include "main.h"
+#include "全局内容.h"
+#include "平台检测.h"
+
+全局 全局内容; // 定义全局内容结构体
 
 int main(){
+	#ifdef _DEBUG
+		#pragma message("当前处于DEBUG编译模式，调试功能将开启")
+	#endif
 
-#ifdef _DEBUG
-	#pragma message("当前处于DEBUG编译模式，调试功能将开启")
-#endif
+	全局内容.系统信息 = 平台检测();
+
 	try{
 		初始化窗口();
 		交互与执行();

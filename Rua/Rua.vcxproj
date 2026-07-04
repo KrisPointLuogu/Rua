@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -150,15 +150,16 @@
     <ClCompile Include="REPL.cpp" />
     <ClCompile Include="UTF32支持.cpp" />
     <ClCompile Include="功能实现.cpp" />
-    <ClCompile Include="工具合集.cpp" />
     <ClCompile Include="词法分析器.cpp" />
     <ClCompile Include="信息上报.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="main.h" />
     <ClInclude Include="REPL.h" />
     <ClInclude Include="UTF32支持.h" />
+    <ClInclude Include="全局内容.h" />
     <ClInclude Include="功能实现.h" />
-    <ClInclude Include="工具合集.h" />
+    <ClInclude Include="平台检测.h" />
     <ClInclude Include="异常上报.h" />
     <ClInclude Include="词法分析器.h" />
     <ClInclude Include="调试输出支持.h" />
