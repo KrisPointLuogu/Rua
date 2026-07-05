@@ -28,9 +28,10 @@ void 基本界面() {
 #ifdef _DEBUG
 	输出文本("当前处于[DEBUG/调试模式]\n请注意，这将会启用全部DEBUG功能，且存在与[RELEASE]模式行为不符的可能性","YY",true,"粗体");
 
-	if(全局内容.系统信息.find("Windows")!=-1 && 全局内容.系统信息.find("x86_64") != -1) 输出文本("EXE位于 [" + 全局内容.系统信息 + "] 系统编译", "GG");
-	else if (全局内容.系统信息.find("Windows") != -1 && 全局内容.系统信息.find("x86") != -1) 输出文本("EXE位于 [" + 全局内容.系统信息 + "] 系统编译，请注意，程序对此Windows版本可能存在兼容性问题", "YY");
-	else if(全局内容.系统信息.find("Linux") != -1 || 全局内容.系统信息.find("macOS") != -1) 输出文本("EXE位于 [" + 全局内容.系统信息 + "] 系统编译，当前存在不稳定或功能异常风险", "YY");
+	// 用string::npos而不是-1
+	if(全局内容.系统信息.find("Windows") != string::npos && 全局内容.系统信息.find("x86_64") != string::npos) 输出文本("EXE位于 [" + 全局内容.系统信息 + "] 系统编译", "GG");
+	else if (全局内容.系统信息.find("Windows") != string::npos && 全局内容.系统信息.find("x86") != string::npos) 输出文本("EXE位于 [" + 全局内容.系统信息 + "] 系统编译，请注意，程序对此Windows版本可能存在兼容性问题", "YY");
+	else if(全局内容.系统信息.find("Linux") != string::npos || 全局内容.系统信息.find("macOS") != string::npos) 输出文本("EXE位于 [" + 全局内容.系统信息 + "] 系统编译，当前存在不稳定或功能异常风险", "YY");
 	else {
 		输出文本("EXE位于 [" + 全局内容.系统信息 + "] 系统编译，如不稳定或功能异常风险导致任何形式的后果，作者概不负责", "RR");
 		输出文本("[Use with caution / 谨慎使用]", "RR");

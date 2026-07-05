@@ -36,19 +36,33 @@ using std::string;
             {"绿-背景", "\033[42m"}
         };
 
-        string 输出缓冲区;
-        输出缓冲区.reserve(信息.size() + 32);
+        if (全局内容.支持ANSI) {
 
-        auto 颜色查找结果 = 颜色表.find(颜色);
-        if (颜色查找结果 != 颜色表.end()) {
-            输出缓冲区 += 颜色查找结果->second;
+            string 输出缓冲区;
+            输出缓冲区.reserve(信息.size() + 32);
+
+            auto 颜色查找结果 = 颜色表.find(颜色);
+            if (颜色查找结果 != 颜色表.end()) {
+                输出缓冲区 += 颜色查找结果->second;
+            }
+
+            输出缓冲区 += 信息;
+            输出缓冲区 += "\033[0m";
+            if (换行) 输出缓冲区 += "\n";
+
+            fputs(输出缓冲区.c_str(), stdout);
+        }
+        else {
+
+            string 输出缓冲区;
+            输出缓冲区.reserve(信息.size() + 16);
+
+            输出缓冲区 += 信息;
+            if (换行) 输出缓冲区 += "\n";
+
+            fputs(输出缓冲区.c_str(), stdout);
         }
 
-        输出缓冲区 += 信息;
-        输出缓冲区 += "\033[0m";
-        if (换行) 输出缓冲区 += "\n";
-
-        fputs(输出缓冲区.c_str(), stdout);
     }
 #else
     void 调试输出(
@@ -57,6 +71,10 @@ using std::string;
         bool 换行 = true,
         bool 前缀 = true
     ) {
-        fputs("\033[91m[x]调用错误\033[0m\n", stdout);
+        if (全局内容.支持ANSI) {
+            fputs("\033[91m[x]调用错误\033[0m\n", stdout);
+        else {
+            fputs("[x]调用错误\n", stdout);
+        }
     }
 #endif

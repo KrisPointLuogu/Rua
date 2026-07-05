@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <string>
 #include <unordered_map>
+#include "全局内容.h"
 
 using std::unordered_map;
 using std::string;
@@ -54,41 +55,58 @@ inline void 输出文本(
         {"闪烁", "\033[5m"}
     };
 
-    // 使用局部缓冲区构建输出
-    string 输出缓冲区;
-    输出缓冲区.reserve(文本.size() + 32);
+    if(全局内容.支持ANSI){
+        // 当前环境支持ANSI
 
-    // 添加颜色代码
-    auto 颜色查找结果 = 颜色表.find(颜色);
-    if (颜色查找结果 != 颜色表.end()) {
-        输出缓冲区 += 颜色查找结果->second;
-    }
+        // 使用局部缓冲区构建输出
+        string 输出缓冲区;
+        输出缓冲区.reserve(文本.size() + 32);
 
-    // 处理样式
-    if (!样式.empty()) {
-        size_t 开始位置 = 0;
-        const size_t npos = string::npos;
-
-        while (开始位置 < 样式.size()) {
-            size_t 逗号位置 = 样式.find(',', 开始位置);
-            if (逗号位置 == npos) 逗号位置 = 样式.size();
-
-            string 单个样式名 = 样式.substr(开始位置, 逗号位置 - 开始位置);
-            auto 样式查找结果 = 样式表.find(单个样式名);
-            if (样式查找结果 != 样式表.end()) {
-                输出缓冲区 += 样式查找结果->second;
-            }
-
-            开始位置 = 逗号位置 + 1;
-            if (逗号位置 == 样式.size()) break;
+        // 添加颜色代码
+        auto 颜色查找结果 = 颜色表.find(颜色);
+        if (颜色查找结果 != 颜色表.end()) {
+            输出缓冲区 += 颜色查找结果->second;
         }
+
+        // 处理样式
+        if (!样式.empty()) {
+            size_t 开始位置 = 0;
+            const size_t npos = string::npos;
+
+            while (开始位置 < 样式.size()) {
+                size_t 逗号位置 = 样式.find(',', 开始位置);
+                if (逗号位置 == npos) 逗号位置 = 样式.size();
+
+                string 单个样式名 = 样式.substr(开始位置, 逗号位置 - 开始位置);
+                auto 样式查找结果 = 样式表.find(单个样式名);
+                if (样式查找结果 != 样式表.end()) {
+                    输出缓冲区 += 样式查找结果->second;
+                }
+
+                开始位置 = 逗号位置 + 1;
+                if (逗号位置 == 样式.size()) break;
+            }
+        }
+
+        // 添加文本和重置码
+        输出缓冲区 += 文本;
+        输出缓冲区 += "\033[0m";
+        if (换行) 输出缓冲区 += "\n"; // 换行处理
+
+        // 一次性输出
+        fputs(输出缓冲区.c_str(), stdout);
     }
+    else {
+        // 当前环境不支持ANSI
 
-    // 添加文本和重置码
-    输出缓冲区 += 文本;
-    输出缓冲区 += "\033[0m";
-    if (换行) 输出缓冲区 += "\n"; // 换行处理
+        // 局部缓冲区
+        string 输出缓冲区;
+        输出缓冲区.reserve(文本.size() + 16);
 
-    // 一次性输出
-    fputs(输出缓冲区.c_str(), stdout);
+        // 去除ANSI
+        输出缓冲区 += 文本;
+        if (换行) 输出缓冲区 += "\n";
+
+        fputs(输出缓冲区.c_str(), stdout);
+    }
 }
