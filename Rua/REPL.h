@@ -43,7 +43,7 @@ inline string 获取系统用户名() {
 
 }
 
-inline int 生成随机数(const int 左边, const int 右边) {
+inline int 生成随机数(const int 左边, const int 右边){
     // 获取种子
     random_device 种子;
 

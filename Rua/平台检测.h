@@ -3,6 +3,9 @@
 
 using std::string;
 
+/*
+* 无参数
+*/
 inline string 平台检测() {
 	string 系统;
 	string 架构;

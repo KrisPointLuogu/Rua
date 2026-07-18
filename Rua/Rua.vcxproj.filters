@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="非代码">
+      <UniqueIdentifier>{578ffdc4-f794-41bc-8c66-5890fd268393}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -22,9 +25,6 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="词法分析器.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="功能实现.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="信息上报.h">
@@ -47,9 +47,6 @@
     <ClInclude Include="词法分析器.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="功能实现.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="UTF32支持.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -65,5 +62,10 @@
     <ClInclude Include="平台检测.h">
       <Filter>头文件</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="码风文档.md">
+      <Filter>非代码</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -7,6 +7,12 @@
 using std::unordered_map;
 using std::string;
 
+/*
+* 文本：需要输出的文本内容。
+* 颜色：控制输出文本的颜色，默认值为 "白" 如环境不支持彩色输出，将会不予操作颜色输出。
+* 换行：布尔值，传入 true 以表示将换行符加入文本末尾，默认值为 true
+* 样式：控制输出文本的样式，默认值为空，如环境不支持，将会不予操作样式输出。
+*/
 inline void 输出文本(
     const string& 文本, 
     const string& 颜色 = "白", 

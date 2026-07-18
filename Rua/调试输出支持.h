@@ -7,6 +7,13 @@ using std::unordered_map;
 using std::string;
 
 #ifdef _DEBUG
+
+    /*
+    * 信息：将要输出的调试信息。
+    * 颜色：控制输出调试信息的颜色，默认值为 "WW"(浅黄) 如环境不支持彩色输出，将会不予操作颜色输出。
+    * 换行：布尔值，传入 true 以表示将换行符加入调试信息末尾，默认值为 true
+    * 前缀：布尔值，传入 true 以标识将固定的前缀加入调试信息头部，默认值为 true
+    */
     inline void 调试输出(
         string 信息,
         const string& 颜色 = "WW",
@@ -65,16 +72,15 @@ using std::string;
 
     }
 #else
+    /*
+    * 当前调试输出函数不可用
+    */
     void 调试输出(
         string 信息,
         const string& 颜色 = "WW",
         bool 换行 = true,
         bool 前缀 = true
     ) {
-        if (全局内容.支持ANSI) {
-            fputs("\033[91m[x]调用错误\033[0m\n", stdout);
-        else {
-            fputs("[x]调用错误\n", stdout);
-        }
+        fputs("[x]调试输出函数——调用错误\n", stdout);
     }
 #endif
