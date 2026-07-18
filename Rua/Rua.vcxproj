@@ -164,6 +164,7 @@
     <ClInclude Include="输出彩色支持.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="推送.md" />
     <None Include="码风文档.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

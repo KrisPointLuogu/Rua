@@ -67,5 +67,8 @@
     <None Include="码风文档.md">
       <Filter>非代码</Filter>
     </None>
+    <None Include="推送.md">
+      <Filter>非代码</Filter>
+    </None>
   </ItemGroup>
 </Project>
