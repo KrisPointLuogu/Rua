@@ -11,6 +11,8 @@ if(MSVC)
     add_compile_options(/utf-8 /W3)
 endif()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -Wall")
+
 add_executable(Rua
     Rua/main.cpp
     Rua/REPL.cpp
