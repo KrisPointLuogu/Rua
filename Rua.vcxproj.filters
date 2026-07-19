@@ -18,48 +18,48 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="REPL.cpp">
+    <ClCompile Include="src\REPL.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="词法分析器.cpp">
+    <ClCompile Include="src\词法分析器.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="信息上报.h">
+    <ClCompile Include="includes\信息上报.h">
       <Filter>头文件</Filter>
     </ClCompile>
-    <ClCompile Include="UTF32支持.cpp">
+    <ClCompile Include="src\UTF32支持.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="输出彩色支持.h">
+    <ClInclude Include="includes\输出彩色支持.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="异常上报.h">
+    <ClInclude Include="includes\异常上报.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="REPL.h">
+    <ClInclude Include="includes\REPL.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="词法分析器.h">
+    <ClInclude Include="includes\词法分析器.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="UTF32支持.h">
+    <ClInclude Include="includes\UTF32支持.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="调试输出支持.h">
+    <ClInclude Include="includes\调试输出支持.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="main.h">
+    <ClInclude Include="includes\main.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="全局内容.h">
+    <ClInclude Include="includes\全局内容.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="平台检测.h">
+    <ClInclude Include="includes\平台检测.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

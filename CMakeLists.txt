@@ -14,17 +14,17 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -Wall")
 
 add_executable(Rua
-    Rua/main.cpp
-    Rua/REPL.cpp
-    Rua/UTF32支持.cpp
-    Rua/词法分析器.cpp
-    Rua/语法分析器.cpp
-    Rua/语义分析.cpp
-    Rua/字节码生成.cpp
-    Rua/虚拟机.cpp
+    src/main.cpp
+    src/REPL.cpp
+    src/UTF32支持.cpp
+    src/词法分析器.cpp
+    src/语法分析器.cpp
+    src/语义分析.cpp
+    src/字节码生成.cpp
+    src/虚拟机.cpp
 )
 
-target_include_directories(Rua PRIVATE Rua)
+target_include_directories(Rua PRIVATE includes)
 
 if(WIN32)
     target_compile_definitions(Rua PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
