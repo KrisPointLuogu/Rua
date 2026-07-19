@@ -16,6 +16,10 @@ add_executable(Rua
     Rua/REPL.cpp
     Rua/UTF32支持.cpp
     Rua/词法分析器.cpp
+    Rua/语法分析器.cpp
+    Rua/语义分析.cpp
+    Rua/字节码生成.cpp
+    Rua/虚拟机.cpp
 )
 
 target_include_directories(Rua PRIVATE Rua)
