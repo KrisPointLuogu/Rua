@@ -17,6 +17,8 @@
 #include <iostream>
 #include <sstream>
 #include <cassert>
+#include <map>
+#include <functional>
 
 using std::make_unique;
 using std::string;
@@ -442,8 +444,56 @@ void BytecodeGenerator::visit(ExprStmt &node)
         program.emit(Opcode::POP);
 }
 
+#ifdef OPTIMIZATION
+static int foldBinOp(int a, int b, int op)
+{
+    switch (op)
+    {
+    case TK_加号:
+        return a + b;
+    case TK_减号:
+        return a - b;
+    case TK_乘号:
+        return a * b;
+    case TK_除号:
+        return b == 0 ? 0 : a / b;
+    case TK_模:
+        return b == 0 ? 0 : a % b;
+    case TK_等于:
+        return a == b ? 1 : 0;
+    case TK_不等于:
+        return a != b ? 1 : 0;
+    case TK_大于:
+        return a > b ? 1 : 0;
+    case TK_小于:
+        return a < b ? 1 : 0;
+    case TK_大于等于:
+        return a >= b ? 1 : 0;
+    case TK_小于等于:
+        return a <= b ? 1 : 0;
+    default:
+        return 0;
+    }
+}
+#endif
+
 void BytecodeGenerator::visit(BinaryExpr &node)
 {
+#ifdef OPTIMIZATION
+    // 常量折叠：两个操作数都是字面量时编译期求值
+    if (node.op != TK_等号)
+    {
+        if (auto *ln = dynamic_cast<NumberLiteral *>(node.left.get()))
+        {
+            if (auto *rn = dynamic_cast<NumberLiteral *>(node.right.get()))
+            {
+                program.emit(Opcode::ICONST, program.addConstant(foldBinOp(ln->value, rn->value, node.op)));
+                return;
+            }
+        }
+    }
+#endif
+
     // 赋值：右值求值 → STORE
     if (node.op == TK_等号)
     {
@@ -468,7 +518,8 @@ void BytecodeGenerator::visit(BinaryExpr &node)
     if (node.left)
         node.left->accept(*this);
 
-    // Superinstruction: SUB_ICONST when right is constant
+#ifdef OPTIMIZATION
+    // 超级指令：右操作数为常量时合并为 SUB_ICONST / GT_ICONST
     if ((node.op == TK_减号 || node.op == TK_大于) && node.right)
     {
         if (auto *num = dynamic_cast<NumberLiteral *>(node.right.get()))
@@ -478,6 +529,7 @@ void BytecodeGenerator::visit(BinaryExpr &node)
             return;
         }
     }
+#endif
 
     if (node.right)
         node.right->accept(*this);
@@ -551,6 +603,36 @@ void BytecodeGenerator::visit(CallExpr &node)
             }
         }
     }
+#ifdef OPTIMIZATION
+    else if (funcIdx >= 0 &&
+             node.args.size() == static_cast<size_t>(program.functions[funcIdx].paramCount))
+    {
+        bool allConst = true;
+        for (auto &arg : node.args)
+            if (!dynamic_cast<NumberLiteral *>(arg.get()))
+            {
+                allConst = false;
+                break;
+            }
+
+        if (allConst)
+        {
+            std::set<int> visited;
+            if (canConstantFold(funcIdx, visited))
+            {
+                std::vector<int> constArgs;
+                for (auto &arg : node.args)
+                    constArgs.push_back(dynamic_cast<NumberLiteral *>(arg.get())->value);
+                if (tryConstantFold(funcIdx, constArgs))
+                    return;
+            }
+        }
+
+        for (auto &arg : node.args)
+            arg->accept(*this);
+        program.emit(Opcode::CALL, funcIdx);
+    }
+#endif
     else
     {
         for (auto &arg : node.args)
@@ -576,3 +658,228 @@ void BytecodeGenerator::visit(Identifier &node)
     if (slot >= 0)
         program.emit(Opcode::LOAD, slot);
 }
+
+#ifdef OPTIMIZATION
+bool BytecodeGenerator::canConstantFold(int funcIdx, std::set<int> &visited)
+{
+    if (!visited.insert(funcIdx).second)
+        return true;
+    const auto &fi = program.functions[funcIdx];
+    int end = (funcIdx + 1 < static_cast<int>(program.functions.size()))
+                  ? program.functions[funcIdx + 1].codeOffset
+                  : static_cast<int>(program.code.size());
+    for (int pc = fi.codeOffset; pc < end;)
+    {
+        Opcode o = static_cast<Opcode>(program.code[pc]);
+        switch (o)
+        {
+        case Opcode::LOAD:
+        case Opcode::ICONST:
+        case Opcode::ADD:
+        case Opcode::SUB:
+        case Opcode::MUL:
+        case Opcode::DIV:
+        case Opcode::MOD:
+        case Opcode::EQ:
+        case Opcode::NEQ:
+        case Opcode::LT:
+        case Opcode::GT:
+        case Opcode::SUB_ICONST:
+        case Opcode::GT_ICONST:
+        case Opcode::JIF:
+        case Opcode::JMP:
+        case Opcode::POP:
+        case Opcode::RET:
+        case Opcode::HALT:
+            pc += hasOperand(o) ? 5 : 1;
+            break;
+        case Opcode::CALL:
+        {
+            int ci = static_cast<int>(program.code[pc + 1]) | (static_cast<int>(program.code[pc + 2]) << 8) | (static_cast<int>(program.code[pc + 3]) << 16) | (static_cast<int>(program.code[pc + 4]) << 24);
+            if (!canConstantFold(ci, visited))
+                return false;
+            pc += 5;
+            break;
+        }
+        default:
+            return false;
+        }
+    }
+    return true;
+}
+
+bool BytecodeGenerator::tryConstantFold(int funcIdx, const std::vector<int> &constArgs)
+{
+    static std::map<std::pair<int, std::vector<int>>, int> evalCache;
+    static std::function<int(const BytecodeProgram &, int, std::vector<int>, int &)> evalFn;
+    evalCache.clear();
+    int callDepth = 0;
+    constexpr int MAX_DEPTH = 10000000;
+    evalFn = [](const BytecodeProgram &p, int idx, std::vector<int> args, int &depth) -> int
+    {
+        if (++depth > MAX_DEPTH)
+        {
+            --depth;
+            return 0;
+        }
+        auto key = std::make_pair(idx, args);
+        auto it = evalCache.find(key);
+        if (it != evalCache.end())
+        {
+            --depth;
+            return it->second;
+        }
+
+        std::vector<int> stk = std::move(args);
+        const auto &fi = p.functions[idx];
+        int end = (idx + 1 < static_cast<int>(p.functions.size()))
+                      ? p.functions[idx + 1].codeOffset
+                      : static_cast<int>(p.code.size());
+
+        for (int pc = fi.codeOffset; pc < end;)
+        {
+            Opcode o = static_cast<Opcode>(p.code[pc]);
+            int slot, ci, a, b;
+            switch (o)
+            {
+            case Opcode::LOAD:
+                slot = static_cast<int>(p.code[pc + 1]) | (static_cast<int>(p.code[pc + 2]) << 8) | (static_cast<int>(p.code[pc + 3]) << 16) | (static_cast<int>(p.code[pc + 4]) << 24);
+                stk.push_back(stk[slot]);
+                pc += 5;
+                break;
+            case Opcode::ICONST:
+                ci = static_cast<int>(p.code[pc + 1]) | (static_cast<int>(p.code[pc + 2]) << 8) | (static_cast<int>(p.code[pc + 3]) << 16) | (static_cast<int>(p.code[pc + 4]) << 24);
+                stk.push_back(p.constants[ci]);
+                pc += 5;
+                break;
+            case Opcode::ADD:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a + b);
+                pc++;
+                break;
+            case Opcode::SUB:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a - b);
+                pc++;
+                break;
+            case Opcode::MUL:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a * b);
+                pc++;
+                break;
+            case Opcode::DIV:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(b ? a / b : 0);
+                pc++;
+                break;
+            case Opcode::MOD:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(b ? a % b : 0);
+                pc++;
+                break;
+            case Opcode::EQ:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a == b ? 1 : 0);
+                pc++;
+                break;
+            case Opcode::NEQ:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a != b ? 1 : 0);
+                pc++;
+                break;
+            case Opcode::LT:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a < b ? 1 : 0);
+                pc++;
+                break;
+            case Opcode::GT:
+                b = stk.back();
+                stk.pop_back();
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a > b ? 1 : 0);
+                pc++;
+                break;
+            case Opcode::SUB_ICONST:
+                ci = static_cast<int>(p.code[pc + 1]) | (static_cast<int>(p.code[pc + 2]) << 8) | (static_cast<int>(p.code[pc + 3]) << 16) | (static_cast<int>(p.code[pc + 4]) << 24);
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a - p.constants[ci]);
+                pc += 5;
+                break;
+            case Opcode::GT_ICONST:
+                ci = static_cast<int>(p.code[pc + 1]) | (static_cast<int>(p.code[pc + 2]) << 8) | (static_cast<int>(p.code[pc + 3]) << 16) | (static_cast<int>(p.code[pc + 4]) << 24);
+                a = stk.back();
+                stk.pop_back();
+                stk.push_back(a > p.constants[ci] ? 1 : 0);
+                pc += 5;
+                break;
+            case Opcode::JIF:
+                ci = static_cast<int>(p.code[pc + 1]) | (static_cast<int>(p.code[pc + 2]) << 8) | (static_cast<int>(p.code[pc + 3]) << 16) | (static_cast<int>(p.code[pc + 4]) << 24);
+                a = stk.back();
+                stk.pop_back();
+                pc = (a == 0) ? (pc + 5 + ci) : (pc + 5);
+                break;
+            case Opcode::JMP:
+                ci = static_cast<int>(p.code[pc + 1]) | (static_cast<int>(p.code[pc + 2]) << 8) | (static_cast<int>(p.code[pc + 3]) << 16) | (static_cast<int>(p.code[pc + 4]) << 24);
+                pc = pc + 5 + ci;
+                break;
+            case Opcode::CALL:
+                ci = static_cast<int>(p.code[pc + 1]) | (static_cast<int>(p.code[pc + 2]) << 8) | (static_cast<int>(p.code[pc + 3]) << 16) | (static_cast<int>(p.code[pc + 4]) << 24);
+                {
+                    int na = p.functions[ci].paramCount;
+                    std::vector<int> ca;
+                    for (int k = 0; k < na; k++)
+                        ca.insert(ca.begin(), stk.back()), stk.pop_back();
+                    stk.push_back(evalFn(p, ci, ca, depth));
+                    pc += 5;
+                }
+                break;
+            case Opcode::RET:
+                --depth;
+                evalCache[key] = stk.back();
+                return stk.back();
+            case Opcode::POP:
+                stk.pop_back();
+                pc++;
+                break;
+            default:
+                pc += hasOperand(o) ? 5 : 1;
+                break;
+            }
+        }
+        --depth;
+        return 0;
+    };
+
+    int result = evalFn(program, funcIdx, constArgs, callDepth);
+    if (callDepth > MAX_DEPTH)
+        return false;
+    program.emit(Opcode::ICONST, program.addConstant(result));
+    return true;
+}
+#endif

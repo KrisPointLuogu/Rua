@@ -90,6 +90,8 @@ void VM::run(const BytecodeProgram &prog)
     auto 开始 = std::chrono::high_resolution_clock::now();
 #endif
 
+#ifdef OPTIMIZATION
+    // 直接线程分发：goto *label 代替 switch
     static void *dispatch[] = {
         &&op_halt,
         &&op_iconst,
@@ -114,6 +116,9 @@ void VM::run(const BytecodeProgram &prog)
         &&op_sub_iconst,
         &&op_gt_iconst,
     };
+#else
+    // 朴素 switch 分发（无 OPTIMIZATION 时）
+#endif
 
     ip = 0;
 
@@ -133,6 +138,7 @@ void VM::run(const BytecodeProgram &prog)
 #define EXPECT_INT(v, opname) ((void)0)
 #endif
 
+#ifdef OPTIMIZATION
 #define NEXT()                   \
     do                           \
     {                            \
@@ -142,6 +148,67 @@ void VM::run(const BytecodeProgram &prog)
     } while (0)
 
     NEXT();
+#else
+#define NEXT() goto op_next
+op_next:
+    while (ip < static_cast<int>(code.size()))
+    {
+        Opcode op = static_cast<Opcode>(code[ip]);
+        ip++;
+        if (op == Opcode::HALT)
+            break;
+        switch (op)
+        {
+        case Opcode::ICONST:
+            goto op_iconst;
+        case Opcode::SCONST:
+            goto op_sconst;
+        case Opcode::ADD:
+            goto op_add;
+        case Opcode::SUB:
+            goto op_sub;
+        case Opcode::MUL:
+            goto op_mul;
+        case Opcode::DIV:
+            goto op_div;
+        case Opcode::MOD:
+            goto op_mod;
+        case Opcode::EQ:
+            goto op_eq;
+        case Opcode::NEQ:
+            goto op_neq;
+        case Opcode::LT:
+            goto op_lt;
+        case Opcode::GT:
+            goto op_gt;
+        case Opcode::JMP:
+            goto op_jmp;
+        case Opcode::JIF:
+            goto op_jif;
+        case Opcode::LOAD:
+            goto op_load;
+        case Opcode::STORE:
+            goto op_store;
+        case Opcode::CALL:
+            goto op_call;
+        case Opcode::PRINT:
+            goto op_print;
+        case Opcode::RET:
+            goto op_ret;
+        case Opcode::POP:
+            goto op_pop;
+        default:
+        {
+            std::ostringstream oss;
+            oss << "运行时错误：未知操作码 0x"
+                << std::hex << static_cast<int>(op) << std::dec
+                << "，IP=" << (ip - 1);
+            throw VMError(oss.str());
+        }
+        }
+    }
+    goto op_halt_end;
+#endif
 
     // ======== opcode dispatch ========
 
@@ -191,6 +258,8 @@ op_sub:
     NEXT();
 }
 
+#ifdef OPTIMIZATION
+// 超级指令：SUB_ICONST ci — 取代 ICONST ci + SUB 两次分发
 op_sub_iconst:
 {
     const int ci = READ_OPERAND();
@@ -200,6 +269,7 @@ op_sub_iconst:
     ip += 4;
     NEXT();
 }
+#endif
 
 op_mul:
 {
@@ -285,6 +355,7 @@ op_gt:
     NEXT();
 }
 
+#ifdef OPTIMIZATION
 op_gt_iconst:
 {
     const int ci = READ_OPERAND();
@@ -294,6 +365,7 @@ op_gt_iconst:
     ip += 4;
     NEXT();
 }
+#endif
 
 op_jmp:
 {

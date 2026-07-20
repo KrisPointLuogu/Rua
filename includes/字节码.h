@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <set>
 #include <unordered_map>
 #include <memory>
 #include "语法树.h"
@@ -55,8 +56,10 @@ enum class Opcode : uint8_t
     GT = 0x11,
     NEQ = 0x12,
     MOD = 0x13,
+#ifdef OPTIMIZATION
     SUB_ICONST = 0x14,
     GT_ICONST = 0x15,
+#endif
 };
 
 inline bool hasOperand(Opcode op)
@@ -70,8 +73,10 @@ inline bool hasOperand(Opcode op)
     case Opcode::LOAD:
     case Opcode::STORE:
     case Opcode::CALL:
+#ifdef OPTIMIZATION
     case Opcode::SUB_ICONST:
     case Opcode::GT_ICONST:
+#endif
         return true;
     default:
         return false;
@@ -142,4 +147,9 @@ private:
     void exitScope();
     int allocateSlot(const std::string &name);
     int lookupSlot(const std::string &name);
+
+#ifdef OPTIMIZATION
+    bool canConstantFold(int funcIdx, std::set<int> &visited);
+    bool tryConstantFold(int funcIdx, const std::vector<int> &constArgs);
+#endif
 };
