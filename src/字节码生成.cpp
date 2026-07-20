@@ -149,6 +149,12 @@ static const char *opcodeName(Opcode op)
         return "NEQ";
     case Opcode::MOD:
         return "MOD";
+#ifdef OPTIMIZATION
+    case Opcode::SUB_ICONST:
+        return "SUB_ICONST";
+    case Opcode::GT_ICONST:
+        return "GT_ICONST";
+#endif
     default:
         return "???";
     }

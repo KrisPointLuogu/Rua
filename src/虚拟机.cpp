@@ -66,25 +66,59 @@ void VM::run(const BytecodeProgram &prog)
     vector<string> strPool;
 
     auto pushInt = [&](int data)
-    { ++_sp; _tos = Value(data); s[_sp] = _tos; };
+    {
+        if (++_sp >= STACK_CAP) throw VMError("运行时错误：值栈溢出");
+        _tos = Value(data); s[_sp] = _tos;
+    };
     auto pushStr = [&](int idx)
-    { ++_sp; _tos = Value(idx, ValueType::STRING); s[_sp] = _tos; };
+    {
+        if (++_sp >= STACK_CAP) throw VMError("运行时错误：值栈溢出");
+        _tos = Value(idx, ValueType::STRING); s[_sp] = _tos;
+    };
     auto push = [&](const Value &val)
-    { s[++_sp] = val; _tos = val; };
+    {
+        if (++_sp >= STACK_CAP) throw VMError("运行时错误：值栈溢出");
+        s[_sp] = val; _tos = val;
+    };
     auto pop = [&]() -> Value
-    { Value r = _tos; --_sp; if (_sp >= 0) _tos = s[_sp]; return r; };
+    {
+        if (_sp < 0) throw VMError("运行时错误：值栈下溢");
+        Value r = _tos; --_sp;
+        if (_sp >= 0) _tos = s[_sp];
+        return r;
+    };
     auto popInt = [&]() -> int
-    { int r = _tos.data; --_sp; if (_sp >= 0) _tos = s[_sp]; return r; };
+    {
+        if (_sp < 0) throw VMError("运行时错误：值栈下溢");
+        int r = _tos.data; --_sp;
+        if (_sp >= 0) _tos = s[_sp];
+        return r;
+    };
     auto pushCall = [&](int val)
-    { cs[++_cp] = val; };
+    {
+        if (++_cp >= CALL_CAP) throw VMError("运行时错误：调用栈溢出");
+        cs[_cp] = val;
+    };
     auto popCall = [&]() -> int
-    { return cs[_cp--]; };
+    {
+        if (_cp < 0) throw VMError("运行时错误：调用栈下溢");
+        return cs[_cp--];
+    };
     auto pushFrame = [&](int val)
-    { fs[++_fp] = val; };
+    {
+        if (++_fp >= FRAME_CAP) throw VMError("运行时错误：帧栈溢出");
+        fs[_fp] = val;
+    };
     auto popFrame = [&]() -> int
-    { return fs[_fp--]; };
+    {
+        if (_fp < 0) throw VMError("运行时错误：帧栈下溢");
+        return fs[_fp--];
+    };
     auto peekFrame = [&]() -> int
-    { return fs[_fp]; };
+    {
+        if (_fp < 0) throw VMError("运行时错误：帧栈为空");
+        return fs[_fp];
+    };
 
 #ifdef _DEBUG
     auto 开始 = std::chrono::high_resolution_clock::now();
@@ -138,6 +172,8 @@ void VM::run(const BytecodeProgram &prog)
 #define EXPECT_INT(v, opname) ((void)0)
 #endif
 
+    try
+    {
 #ifdef OPTIMIZATION
 #define NEXT()                   \
     do                           \
@@ -212,239 +248,244 @@ op_next:
 
     // ======== opcode dispatch ========
 
-op_halt:
-    goto op_halt_end;
+    op_halt:
+        goto op_halt_end;
 
-op_iconst:
-{
-    const int idx = READ_OPERAND();
-    pushInt(constants[idx]);
-    ip += 4;
-    NEXT();
-}
-
-op_sconst:
-{
-    const int idx = READ_OPERAND();
-    strPool.push_back(strings[idx]);
-    pushStr(static_cast<int>(strPool.size()) - 1);
-    ip += 4;
-    NEXT();
-}
-
-op_add:
-{
-    Value b = pop();
-    Value a = pop();
-    if (a.type == ValueType::INTEGER && b.type == ValueType::INTEGER)
-        pushInt(a.data + b.data);
-    else if (a.type == ValueType::STRING && b.type == ValueType::STRING)
+    op_iconst:
     {
-        strPool.push_back(strPool[a.data] + strPool[b.data]);
-        pushStr(static_cast<int>(strPool.size()) - 1);
+        const int idx = READ_OPERAND();
+        pushInt(constants[idx]);
+        ip += 4;
+        NEXT();
     }
-    else
-        throw VMError("运行时错误：ADD 操作数类型不匹配");
-    NEXT();
-}
 
-op_sub:
-{
-    Value b = pop();
-    Value a = pop();
-    EXPECT_INT(a, "SUB");
-    EXPECT_INT(b, "SUB");
-    pushInt(a.data - b.data);
-    NEXT();
-}
+    op_sconst:
+    {
+        const int idx = READ_OPERAND();
+        strPool.push_back(strings[idx]);
+        pushStr(static_cast<int>(strPool.size()) - 1);
+        ip += 4;
+        NEXT();
+    }
 
-#ifdef OPTIMIZATION
-// 超级指令：SUB_ICONST ci — 取代 ICONST ci + SUB 两次分发
-op_sub_iconst:
-{
-    const int ci = READ_OPERAND();
-    EXPECT_INT(_tos, "SUB");
-    _tos.data -= constants[ci];
-    s[_sp] = _tos;
-    ip += 4;
-    NEXT();
-}
-#endif
+    op_add:
+    {
+        Value b = pop();
+        Value a = pop();
+        if (a.type == ValueType::INTEGER && b.type == ValueType::INTEGER)
+            pushInt(a.data + b.data);
+        else if (a.type == ValueType::STRING && b.type == ValueType::STRING)
+        {
+            strPool.push_back(strPool[a.data] + strPool[b.data]);
+            pushStr(static_cast<int>(strPool.size()) - 1);
+        }
+        else
+            throw VMError("运行时错误：ADD 操作数类型不匹配");
+        NEXT();
+    }
 
-op_mul:
-{
-    Value b = pop();
-    Value a = pop();
-    EXPECT_INT(a, "MUL");
-    EXPECT_INT(b, "MUL");
-    pushInt(a.data * b.data);
-    NEXT();
-}
-
-op_div:
-{
-    Value b = pop();
-    Value a = pop();
-    EXPECT_INT(a, "DIV");
-    EXPECT_INT(b, "DIV");
-    if (b.data == 0)
-        throw VMError("运行时错误：除数为零");
-    pushInt(a.data / b.data);
-    NEXT();
-}
-
-op_mod:
-{
-    Value b = pop();
-    Value a = pop();
-    EXPECT_INT(a, "MOD");
-    EXPECT_INT(b, "MOD");
-    if (b.data == 0)
-        throw VMError("运行时错误：除数为零");
-    pushInt(a.data % b.data);
-    NEXT();
-}
-
-op_eq:
-{
-    Value b = pop();
-    Value a = pop();
-    int result;
-    if (a.type != b.type)
-        result = 0;
-    else if (a.type == ValueType::INTEGER)
-        result = a.data == b.data ? 1 : 0;
-    else
-        result = strPool[a.data] == strPool[b.data] ? 1 : 0;
-    pushInt(result);
-    NEXT();
-}
-
-op_neq:
-{
-    Value b = pop();
-    Value a = pop();
-    int result;
-    if (a.type != b.type)
-        result = 1;
-    else if (a.type == ValueType::INTEGER)
-        result = a.data != b.data ? 1 : 0;
-    else
-        result = strPool[a.data] != strPool[b.data] ? 1 : 0;
-    pushInt(result);
-    NEXT();
-}
-
-op_lt:
-{
-    Value b = pop();
-    Value a = pop();
-    EXPECT_INT(a, "LT");
-    EXPECT_INT(b, "LT");
-    pushInt(a.data < b.data ? 1 : 0);
-    NEXT();
-}
-
-op_gt:
-{
-    Value b = pop();
-    Value a = pop();
-    EXPECT_INT(a, "GT");
-    EXPECT_INT(b, "GT");
-    pushInt(a.data > b.data ? 1 : 0);
-    NEXT();
-}
+    op_sub:
+    {
+        Value b = pop();
+        Value a = pop();
+        EXPECT_INT(a, "SUB");
+        EXPECT_INT(b, "SUB");
+        pushInt(a.data - b.data);
+        NEXT();
+    }
 
 #ifdef OPTIMIZATION
-op_gt_iconst:
-{
-    const int ci = READ_OPERAND();
-    EXPECT_INT(_tos, "GT");
-    _tos.data = (_tos.data > constants[ci]) ? 1 : 0;
-    s[_sp] = _tos;
-    ip += 4;
-    NEXT();
-}
+    op_sub_iconst:
+    {
+        const int ci = READ_OPERAND();
+        EXPECT_INT(_tos, "SUB");
+        _tos.data -= constants[ci];
+        s[_sp] = _tos;
+        ip += 4;
+        NEXT();
+    }
 #endif
 
-op_jmp:
-{
-    const int offset = READ_OPERAND();
-    ip += 4 + offset;
-    NEXT();
-}
+    op_mul:
+    {
+        Value b = pop();
+        Value a = pop();
+        EXPECT_INT(a, "MUL");
+        EXPECT_INT(b, "MUL");
+        pushInt(a.data * b.data);
+        NEXT();
+    }
 
-op_jif:
-{
-    const int offset = READ_OPERAND();
-    Value cond = pop();
-    EXPECT_INT(cond, "JIF");
-    ip += (cond.data == 0) ? (4 + offset) : 4;
-    NEXT();
-}
+    op_div:
+    {
+        Value b = pop();
+        Value a = pop();
+        EXPECT_INT(a, "DIV");
+        EXPECT_INT(b, "DIV");
+        if (b.data == 0)
+            throw VMError("运行时错误：除数为零");
+        pushInt(a.data / b.data);
+        NEXT();
+    }
 
-op_load:
-{
-    const int slot = READ_OPERAND();
-    ip += 4;
-    const int base = peekFrame();
-    push(s[base + slot]);
-    NEXT();
-}
+    op_mod:
+    {
+        Value b = pop();
+        Value a = pop();
+        EXPECT_INT(a, "MOD");
+        EXPECT_INT(b, "MOD");
+        if (b.data == 0)
+            throw VMError("运行时错误：除数为零");
+        pushInt(a.data % b.data);
+        NEXT();
+    }
 
-op_store:
-{
-    const int slot = READ_OPERAND();
-    ip += 4;
-    const int base = peekFrame();
-    s[base + slot] = pop();
-    NEXT();
-}
+    op_eq:
+    {
+        Value b = pop();
+        Value a = pop();
+        int result;
+        if (a.type != b.type)
+            result = 0;
+        else if (a.type == ValueType::INTEGER)
+            result = a.data == b.data ? 1 : 0;
+        else
+            result = strPool[a.data] == strPool[b.data] ? 1 : 0;
+        pushInt(result);
+        NEXT();
+    }
 
-op_call:
-{
-    const int funcIdx = READ_OPERAND();
-    const FunctionInfo &func = functions[funcIdx];
-    const int frameBase = _sp + 1 - func.paramCount;
-    pushFrame(frameBase);
+    op_neq:
+    {
+        Value b = pop();
+        Value a = pop();
+        int result;
+        if (a.type != b.type)
+            result = 1;
+        else if (a.type == ValueType::INTEGER)
+            result = a.data != b.data ? 1 : 0;
+        else
+            result = strPool[a.data] != strPool[b.data] ? 1 : 0;
+        pushInt(result);
+        NEXT();
+    }
 
-    for (int i = 0; i < func.localCount; i++)
-        pushInt(0);
+    op_lt:
+    {
+        Value b = pop();
+        Value a = pop();
+        EXPECT_INT(a, "LT");
+        EXPECT_INT(b, "LT");
+        pushInt(a.data < b.data ? 1 : 0);
+        NEXT();
+    }
 
-    pushCall(ip + 4);
-    ip = func.codeOffset;
-    NEXT();
-}
+    op_gt:
+    {
+        Value b = pop();
+        Value a = pop();
+        EXPECT_INT(a, "GT");
+        EXPECT_INT(b, "GT");
+        pushInt(a.data > b.data ? 1 : 0);
+        NEXT();
+    }
 
-op_ret:
-{
-    Value retVal = pop();
-    _sp = popFrame() - 1;
-    push(retVal);
-    ip = popCall();
-    NEXT();
-}
+#ifdef OPTIMIZATION
+    op_gt_iconst:
+    {
+        const int ci = READ_OPERAND();
+        EXPECT_INT(_tos, "GT");
+        _tos.data = (_tos.data > constants[ci]) ? 1 : 0;
+        s[_sp] = _tos;
+        ip += 4;
+        NEXT();
+    }
+#endif
 
-op_print:
-{
-    Value v = pop();
-    if (v.type == ValueType::INTEGER)
-        std::cout << v.data;
-    else
-        std::cout << strPool[v.data];
-    NEXT();
-}
+    op_jmp:
+    {
+        const int offset = READ_OPERAND();
+        ip += 4 + offset;
+        NEXT();
+    }
 
-op_pop:
-{
-    pop();
-    NEXT();
-}
+    op_jif:
+    {
+        const int offset = READ_OPERAND();
+        Value cond = pop();
+        EXPECT_INT(cond, "JIF");
+        ip += (cond.data == 0) ? (4 + offset) : 4;
+        NEXT();
+    }
 
-op_halt_end:
-    sp = _sp;
-    cp = _cp;
-    fp = _fp;
+    op_load:
+    {
+        const int slot = READ_OPERAND();
+        ip += 4;
+        const int base = peekFrame();
+        push(s[base + slot]);
+        NEXT();
+    }
+
+    op_store:
+    {
+        const int slot = READ_OPERAND();
+        ip += 4;
+        const int base = peekFrame();
+        s[base + slot] = pop();
+        NEXT();
+    }
+
+    op_call:
+    {
+        const int funcIdx = READ_OPERAND();
+        const FunctionInfo &func = functions[funcIdx];
+        const int frameBase = _sp + 1 - func.paramCount;
+        pushFrame(frameBase);
+
+        for (int i = 0; i < func.localCount; i++)
+            pushInt(0);
+
+        pushCall(ip + 4);
+        ip = func.codeOffset;
+        NEXT();
+    }
+
+    op_ret:
+    {
+        Value retVal = pop();
+        _sp = popFrame() - 1;
+        push(retVal);
+        ip = popCall();
+        NEXT();
+    }
+
+    op_print:
+    {
+        Value v = pop();
+        if (v.type == ValueType::INTEGER)
+            std::cout << v.data;
+        else
+            std::cout << strPool[v.data];
+        NEXT();
+    }
+
+    op_pop:
+    {
+        pop();
+        NEXT();
+    }
+
+    op_halt_end:
+        sp = _sp;
+        cp = _cp;
+        fp = _fp;
+    }
+    catch (const VMError &e)
+    {
+        std::cerr << "\n" << e.what() << std::endl;
+        sp = _sp; cp = _cp; fp = _fp;
+    }
 
 #ifdef _DEBUG
     {
