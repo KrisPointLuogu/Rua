@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <stdexcept>
+#include <memory>
 #include "字节码.h"
 
 //
@@ -24,12 +25,11 @@ enum class ValueType
 struct Value
 {
     ValueType type;
-    int intVal;
-    std::string strVal;
+    int data;
 
-    Value();
-    explicit Value(int v);
-    explicit Value(const std::string &s);
+    Value() : type(ValueType::INTEGER), data(0) {}
+    explicit Value(int v) : type(ValueType::INTEGER), data(v) {}
+    Value(int d, ValueType t) : type(t), data(d) {}
     void print() const;
 };
 
@@ -42,28 +42,38 @@ public:
 class VM
 {
 private:
+    static constexpr int STACK_CAP = 65536;
+    static constexpr int CALL_CAP = 65536;
+    static constexpr int FRAME_CAP = 65536;
+
+    std::unique_ptr<Value[]> stackData;
+    std::unique_ptr<int[]> callStackData;
+    std::unique_ptr<int[]> frameStackData;
+
+    int sp;
+    int cp;
+    int fp;
+
     const BytecodeProgram *program;
-    std::vector<Value> stack;
-    std::vector<int> callStack;
-    std::vector<int> frameStack;
     int ip;
 
 public:
     VM();
     void run(const BytecodeProgram &prog);
-    int getStackDepth() const { return static_cast<int>(stack.size()); }
-    int getCallDepth() const { return static_cast<int>(callStack.size()); }
+    int getStackDepth() const { return sp + 1; }
+    int getCallDepth() const { return cp + 1; }
 
 private:
     inline Value pop()
     {
-        Value v = std::move(stack.back());
-        stack.pop_back();
-        return v;
+        return stackData[sp--];
     }
-    inline void push(const Value &val) { stack.push_back(val); }
+    inline void push(const Value &val)
+    {
+        stackData[++sp] = val;
+    }
     inline Value peek(int offset = 0) const
     {
-        return stack[stack.size() - 1 - offset];
+        return stackData[sp - offset];
     }
 };

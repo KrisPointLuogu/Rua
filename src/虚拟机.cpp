@@ -23,21 +23,12 @@ using std::vector;
 
 // ==================== Value ====================
 
-Value::Value() : type(ValueType::INTEGER), intVal(0) {}
-Value::Value(int v) : type(ValueType::INTEGER), intVal(v) {}
-Value::Value(const string &s) : type(ValueType::STRING), intVal(0), strVal(s) {}
-
 void Value::print() const
 {
-    switch (type)
-    {
-    case ValueType::INTEGER:
-        std::cout << intVal;
-        break;
-    case ValueType::STRING:
-        std::cout << strVal;
-        break;
-    }
+    if (type == ValueType::INTEGER)
+        std::cout << data;
+    else
+        std::cout << "(string)";
 }
 
 // ==================== VMError ====================
@@ -46,14 +37,16 @@ VMError::VMError(const string &message) : std::runtime_error(message) {}
 
 // ==================== VM ====================
 
-VM::VM() : program(nullptr), ip(0) {}
+VM::VM()
+    : stackData(std::make_unique<Value[]>(STACK_CAP))
+    , callStackData(std::make_unique<int[]>(CALL_CAP))
+    , frameStackData(std::make_unique<int[]>(FRAME_CAP))
+    , sp(-1), cp(-1), fp(-1), program(nullptr), ip(0)
+{
+}
 
 void VM::run(const BytecodeProgram &prog)
 {
-    stack.clear();
-    callStack.clear();
-    frameStack.clear();
-
     program = &prog;
 
     if (prog.code.empty())
@@ -64,295 +57,273 @@ void VM::run(const BytecodeProgram &prog)
     const auto &strings = prog.strings;
     const auto &functions = prog.functions;
 
+    Value* const s = stackData.get();
+    int* const cs = callStackData.get();
+    int* const fs = frameStackData.get();
+
+    int _sp = -1;
+    int _cp = -1;
+    int _fp = -1;
+
+    vector<string> strPool;
+
 #ifdef _DEBUG
     auto 开始 = std::chrono::high_resolution_clock::now();
 #endif
 
     static void *dispatch[] = {
-        &&op_halt,
-        &&op_iconst,
-        &&op_sconst,
-        &&op_add,
-        &&op_sub,
-        &&op_mul,
-        &&op_div,
-        &&op_eq,
-        &&op_jmp,
-        &&op_jif,
-        &&op_load,
-        &&op_store,
-        &&op_call,
-        &&op_print,
-        &&op_ret,
-        &&op_pop,
-        &&op_lt,
-        &&op_gt,
-        &&op_neq,
-        &&op_mod,
+        &&op_halt, &&op_iconst, &&op_sconst, &&op_add,
+        &&op_sub, &&op_mul, &&op_div, &&op_eq,
+        &&op_jmp, &&op_jif, &&op_load, &&op_store,
+        &&op_call, &&op_print, &&op_ret, &&op_pop,
+        &&op_lt, &&op_gt, &&op_neq, &&op_mod,
     };
 
     ip = 0;
 
-#define READ_OPERAND()                                                    \
-    (static_cast<int>(code[ip]) | (static_cast<int>(code[ip + 1]) << 8) | \
-     (static_cast<int>(code[ip + 2]) << 16) | (static_cast<int>(code[ip + 3]) << 24))
+#define READ_OPERAND() \
+    ({ int _v; __builtin_memcpy(&_v, &code[ip], 4); _v; })
 
-#define EXPECT_INT(v, opname)                                        \
-    if ((v).type != ValueType::INTEGER)                              \
-    {                                                                \
-        std::ostringstream _oss;                                     \
+#ifdef _DEBUG
+#define EXPECT_INT(v, opname) \
+    if ((v).type != ValueType::INTEGER) { \
+        std::ostringstream _oss; \
         _oss << "运行时错误（IP=" << ip << "）：运算符 " << (opname) \
-             << " 要求整数操作数，但遇到字符串";                     \
-        throw VMError(_oss.str());                                   \
+             << " 要求整数操作数，但遇到字符串"; \
+        throw VMError(_oss.str()); \
     }
+#else
+#define EXPECT_INT(v, opname) ((void)0)
+#endif
 
-#define NEXT()                   \
-    do                           \
-    {                            \
-        uint8_t _opc = code[ip]; \
-        ip++;                    \
-        goto *dispatch[_opc];    \
-    } while (0)
+#define NEXT() \
+    do { uint8_t _opc = code[ip]; ip++; goto *dispatch[_opc]; } while (0)
 
     NEXT();
 
     // ======== opcode dispatch ========
 
-op_halt:
-    goto op_halt_end;
+    op_halt:
+        goto op_halt_end;
 
-op_iconst:
-{
-    const int idx = READ_OPERAND();
-    ip += 4;
-    stack.emplace_back(constants[idx]);
-    NEXT();
-}
-
-op_sconst:
-{
-    const int idx = READ_OPERAND();
-    ip += 4;
-    stack.emplace_back(strings[idx]);
-    NEXT();
-}
-
-op_add:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    if (a.type == ValueType::INTEGER && b.type == ValueType::INTEGER)
-    {
-        stack.emplace_back(a.intVal + b.intVal);
+    op_iconst: {
+        const int idx = READ_OPERAND();
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        s[_sp].data = constants[idx];
+        ip += 4;
+        NEXT();
     }
-    else if (a.type == ValueType::STRING && b.type == ValueType::STRING)
-    {
-        a.strVal.append(b.strVal);
-        stack.emplace_back(std::move(a.strVal));
+
+    op_sconst: {
+        const int idx = READ_OPERAND();
+        strPool.push_back(strings[idx]);
+        ++_sp;
+        s[_sp].type = ValueType::STRING;
+        s[_sp].data = static_cast<int>(strPool.size()) - 1;
+        ip += 4;
+        NEXT();
     }
-    else
-        throw VMError("运行时错误：ADD 操作数类型不匹配");
-    NEXT();
-}
 
-op_sub:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    EXPECT_INT(a, "SUB");
-    EXPECT_INT(b, "SUB");
-    stack.emplace_back(a.intVal - b.intVal);
-    NEXT();
-}
+    op_add: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        if (a.type == ValueType::INTEGER && b.type == ValueType::INTEGER) {
+            ++_sp;
+            s[_sp].type = ValueType::INTEGER;
+            s[_sp].data = a.data + b.data;
+        } else if (a.type == ValueType::STRING && b.type == ValueType::STRING) {
+            strPool.push_back(strPool[a.data] + strPool[b.data]);
+            ++_sp;
+            s[_sp].type = ValueType::STRING;
+            s[_sp].data = static_cast<int>(strPool.size()) - 1;
+        } else
+            throw VMError("运行时错误：ADD 操作数类型不匹配");
+        NEXT();
+    }
 
-op_mul:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    EXPECT_INT(a, "MUL");
-    EXPECT_INT(b, "MUL");
-    stack.emplace_back(a.intVal * b.intVal);
-    NEXT();
-}
+    op_sub: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        EXPECT_INT(a, "SUB");
+        EXPECT_INT(b, "SUB");
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        s[_sp].data = a.data - b.data;
+        NEXT();
+    }
 
-op_div:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    EXPECT_INT(a, "DIV");
-    EXPECT_INT(b, "DIV");
-    if (b.intVal == 0)
-        throw VMError("运行时错误：除数为零");
-    stack.emplace_back(a.intVal / b.intVal);
-    NEXT();
-}
+    op_mul: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        EXPECT_INT(a, "MUL");
+        EXPECT_INT(b, "MUL");
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        s[_sp].data = a.data * b.data;
+        NEXT();
+    }
 
-op_mod:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    EXPECT_INT(a, "MOD");
-    EXPECT_INT(b, "MOD");
-    if (b.intVal == 0)
-        throw VMError("运行时错误：除数为零");
-    stack.emplace_back(a.intVal % b.intVal);
-    NEXT();
-}
+    op_div: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        EXPECT_INT(a, "DIV");
+        EXPECT_INT(b, "DIV");
+        if (b.data == 0)
+            throw VMError("运行时错误：除数为零");
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        s[_sp].data = a.data / b.data;
+        NEXT();
+    }
 
-op_eq:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    if (a.type != b.type)
-        stack.emplace_back(0);
-    else if (a.type == ValueType::INTEGER)
-        stack.emplace_back(a.intVal == b.intVal ? 1 : 0);
-    else
-        stack.emplace_back(a.strVal == b.strVal ? 1 : 0);
-    NEXT();
-}
+    op_mod: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        EXPECT_INT(a, "MOD");
+        EXPECT_INT(b, "MOD");
+        if (b.data == 0)
+            throw VMError("运行时错误：除数为零");
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        s[_sp].data = a.data % b.data;
+        NEXT();
+    }
 
-op_neq:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    if (a.type != b.type)
-        stack.emplace_back(1);
-    else if (a.type == ValueType::INTEGER)
-        stack.emplace_back(a.intVal != b.intVal ? 1 : 0);
-    else
-        stack.emplace_back(a.strVal != b.strVal ? 1 : 0);
-    NEXT();
-}
+    op_eq: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        if (a.type != b.type)
+            s[_sp].data = 0;
+        else if (a.type == ValueType::INTEGER)
+            s[_sp].data = a.data == b.data ? 1 : 0;
+        else
+            s[_sp].data = strPool[a.data] == strPool[b.data] ? 1 : 0;
+        NEXT();
+    }
 
-op_lt:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    EXPECT_INT(a, "LT");
-    EXPECT_INT(b, "LT");
-    stack.emplace_back(a.intVal < b.intVal ? 1 : 0);
-    NEXT();
-}
+    op_neq: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        if (a.type != b.type)
+            s[_sp].data = 1;
+        else if (a.type == ValueType::INTEGER)
+            s[_sp].data = a.data != b.data ? 1 : 0;
+        else
+            s[_sp].data = strPool[a.data] != strPool[b.data] ? 1 : 0;
+        NEXT();
+    }
 
-op_gt:
-{
-    Value b = std::move(stack.back());
-    stack.pop_back();
-    Value a = std::move(stack.back());
-    stack.pop_back();
-    EXPECT_INT(a, "GT");
-    EXPECT_INT(b, "GT");
-    stack.emplace_back(a.intVal > b.intVal ? 1 : 0);
-    NEXT();
-}
+    op_lt: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        EXPECT_INT(a, "LT");
+        EXPECT_INT(b, "LT");
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        s[_sp].data = a.data < b.data ? 1 : 0;
+        NEXT();
+    }
 
-op_jmp:
-{
-    const int offset = READ_OPERAND();
-    ip += 4 + offset;
-    NEXT();
-}
+    op_gt: {
+        Value b = s[_sp--];
+        Value a = s[_sp--];
+        EXPECT_INT(a, "GT");
+        EXPECT_INT(b, "GT");
+        ++_sp;
+        s[_sp].type = ValueType::INTEGER;
+        s[_sp].data = a.data > b.data ? 1 : 0;
+        NEXT();
+    }
 
-op_jif:
-{
-    const int offset = READ_OPERAND();
-    Value cond = std::move(stack.back());
-    stack.pop_back();
-    EXPECT_INT(cond, "JIF");
-    ip += (cond.intVal == 0) ? (4 + offset) : 4;
-    NEXT();
-}
+    op_jmp: {
+        const int offset = READ_OPERAND();
+        ip += 4 + offset;
+        NEXT();
+    }
 
-op_load:
-{
-    const int slot = READ_OPERAND();
-    ip += 4;
-    const int base = frameStack.back();
-    const int idx = base + slot;
-    stack.push_back(stack[idx]);
-    NEXT();
-}
+    op_jif: {
+        const int offset = READ_OPERAND();
+        Value cond = s[_sp--];
+        EXPECT_INT(cond, "JIF");
+        ip += (cond.data == 0) ? (4 + offset) : 4;
+        NEXT();
+    }
 
-op_store:
-{
-    const int slot = READ_OPERAND();
-    ip += 4;
-    const int base = frameStack.back();
-    const int idx = base + slot;
-    stack[idx] = std::move(stack.back());
-    stack.pop_back();
-    NEXT();
-}
+    op_load: {
+        const int slot = READ_OPERAND();
+        ip += 4;
+        const int base = fs[_fp];
+        s[++_sp] = s[base + slot];
+        NEXT();
+    }
 
-op_call:
-{
-    const int funcIdx = READ_OPERAND();
-    const FunctionInfo &func = functions[funcIdx];
-    const int frameBase = static_cast<int>(stack.size()) - func.paramCount;
-    frameStack.push_back(frameBase);
+    op_store: {
+        const int slot = READ_OPERAND();
+        ip += 4;
+        const int base = fs[_fp];
+        s[base + slot] = s[_sp--];
+        NEXT();
+    }
 
-    stack.insert(stack.end(), func.localCount, Value(0));
+    op_call: {
+        const int funcIdx = READ_OPERAND();
+        const FunctionInfo &func = functions[funcIdx];
+        const int frameBase = _sp + 1 - func.paramCount;
+        fs[++_fp] = frameBase;
 
-    callStack.push_back(ip + 4);
-    ip = func.codeOffset;
-    NEXT();
-}
+        for (int i = 0; i < func.localCount; i++) {
+            ++_sp;
+            s[_sp].type = ValueType::INTEGER;
+            s[_sp].data = 0;
+        }
 
-op_ret:
-{
-    Value retVal = std::move(stack.back());
-    stack.pop_back();
+        cs[++_cp] = ip + 4;
+        ip = func.codeOffset;
+        NEXT();
+    }
 
-    const int frameBase = frameStack.back();
-    frameStack.pop_back();
+    op_ret: {
+        Value retVal = s[_sp--];
 
-    stack.resize(frameBase);
-    stack.emplace_back(std::move(retVal));
+        const int frameBase = fs[_fp--];
 
-    ip = callStack.back();
-    callStack.pop_back();
-    NEXT();
-}
+        _sp = frameBase - 1;
+        s[++_sp] = retVal;
 
-op_print:
-{
-    Value v = std::move(stack.back());
-    stack.pop_back();
-    v.print();
-    NEXT();
-}
+        ip = cs[_cp--];
+        NEXT();
+    }
 
-op_pop:
-{
-    stack.pop_back();
-    NEXT();
-}
+    op_print: {
+        Value v = s[_sp--];
+        if (v.type == ValueType::INTEGER)
+            std::cout << v.data;
+        else
+            std::cout << strPool[v.data];
+        NEXT();
+    }
+
+    op_pop: {
+        _sp--;
+        NEXT();
+    }
 
 op_halt_end:
+    sp = _sp;
+    cp = _cp;
+    fp = _fp;
 
 #ifdef _DEBUG
-{
-    auto 结束 = std::chrono::high_resolution_clock::now();
-    auto 耗时 = std::chrono::duration_cast<std::chrono::microseconds>(结束 - 开始).count();
-    std::cout << "\n[DEBUG] 字节码执行耗时: " << 耗时 << " 微秒 (" << (耗时 / 1000.0) << " 毫秒)\n";
-}
+    {
+        auto 结束 = std::chrono::high_resolution_clock::now();
+        auto 耗时 = std::chrono::duration_cast<std::chrono::microseconds>(结束 - 开始).count();
+        std::cout << "\n[DEBUG] 字节码执行耗时: " << 耗时 << " 微秒 (" << (耗时 / 1000.0) << " 毫秒)\n";
+    }
 #endif
 }
 
