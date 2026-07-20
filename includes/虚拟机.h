@@ -51,11 +51,19 @@ private:
 public:
     VM();
     void run(const BytecodeProgram &prog);
-    int getStackDepth() const;
-    int getCallDepth() const;
+    int getStackDepth() const { return static_cast<int>(stack.size()); }
+    int getCallDepth() const { return static_cast<int>(callStack.size()); }
 
 private:
-    Value pop();
-    void push(const Value &val);
-    Value peek(int offset = 0) const;
+    inline Value pop()
+    {
+        Value v = std::move(stack.back());
+        stack.pop_back();
+        return v;
+    }
+    inline void push(const Value &val) { stack.push_back(val); }
+    inline Value peek(int offset = 0) const
+    {
+        return stack[stack.size() - 1 - offset];
+    }
 };
