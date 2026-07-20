@@ -55,6 +55,8 @@ enum class Opcode : uint8_t
     GT = 0x11,
     NEQ = 0x12,
     MOD = 0x13,
+    SUB_ICONST = 0x14,
+    GT_ICONST = 0x15,
 };
 
 inline bool hasOperand(Opcode op)
@@ -68,6 +70,8 @@ inline bool hasOperand(Opcode op)
     case Opcode::LOAD:
     case Opcode::STORE:
     case Opcode::CALL:
+    case Opcode::SUB_ICONST:
+    case Opcode::GT_ICONST:
         return true;
     default:
         return false;

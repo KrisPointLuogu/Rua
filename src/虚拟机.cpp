@@ -61,19 +61,20 @@ void VM::run(const BytecodeProgram &prog)
     int _sp = -1;
     int _cp = -1;
     int _fp = -1;
+    Value _tos{0};
 
     vector<string> strPool;
 
     auto pushInt = [&](int data)
-    { ++_sp; s[_sp].type = ValueType::INTEGER; s[_sp].data = data; };
+    { ++_sp; _tos = Value(data); s[_sp] = _tos; };
     auto pushStr = [&](int idx)
-    { ++_sp; s[_sp].type = ValueType::STRING; s[_sp].data = idx; };
+    { ++_sp; _tos = Value(idx, ValueType::STRING); s[_sp] = _tos; };
     auto push = [&](const Value &val)
-    { s[++_sp] = val; };
+    { s[++_sp] = val; _tos = val; };
     auto pop = [&]() -> Value
-    { return s[_sp--]; };
+    { Value r = _tos; --_sp; if (_sp >= 0) _tos = s[_sp]; return r; };
     auto popInt = [&]() -> int
-    { return s[_sp--].data; };
+    { int r = _tos.data; --_sp; if (_sp >= 0) _tos = s[_sp]; return r; };
     auto pushCall = [&](int val)
     { cs[++_cp] = val; };
     auto popCall = [&]() -> int
@@ -110,6 +111,8 @@ void VM::run(const BytecodeProgram &prog)
         &&op_gt,
         &&op_neq,
         &&op_mod,
+        &&op_sub_iconst,
+        &&op_gt_iconst,
     };
 
     ip = 0;
@@ -188,6 +191,16 @@ op_sub:
     NEXT();
 }
 
+op_sub_iconst:
+{
+    const int ci = READ_OPERAND();
+    EXPECT_INT(_tos, "SUB");
+    _tos.data -= constants[ci];
+    s[_sp] = _tos;
+    ip += 4;
+    NEXT();
+}
+
 op_mul:
 {
     Value b = pop();
@@ -226,14 +239,14 @@ op_eq:
 {
     Value b = pop();
     Value a = pop();
-    ++_sp;
-    s[_sp].type = ValueType::INTEGER;
+    int result;
     if (a.type != b.type)
-        s[_sp].data = 0;
+        result = 0;
     else if (a.type == ValueType::INTEGER)
-        s[_sp].data = a.data == b.data ? 1 : 0;
+        result = a.data == b.data ? 1 : 0;
     else
-        s[_sp].data = strPool[a.data] == strPool[b.data] ? 1 : 0;
+        result = strPool[a.data] == strPool[b.data] ? 1 : 0;
+    pushInt(result);
     NEXT();
 }
 
@@ -241,14 +254,14 @@ op_neq:
 {
     Value b = pop();
     Value a = pop();
-    ++_sp;
-    s[_sp].type = ValueType::INTEGER;
+    int result;
     if (a.type != b.type)
-        s[_sp].data = 1;
+        result = 1;
     else if (a.type == ValueType::INTEGER)
-        s[_sp].data = a.data != b.data ? 1 : 0;
+        result = a.data != b.data ? 1 : 0;
     else
-        s[_sp].data = strPool[a.data] != strPool[b.data] ? 1 : 0;
+        result = strPool[a.data] != strPool[b.data] ? 1 : 0;
+    pushInt(result);
     NEXT();
 }
 
@@ -269,6 +282,16 @@ op_gt:
     EXPECT_INT(a, "GT");
     EXPECT_INT(b, "GT");
     pushInt(a.data > b.data ? 1 : 0);
+    NEXT();
+}
+
+op_gt_iconst:
+{
+    const int ci = READ_OPERAND();
+    EXPECT_INT(_tos, "GT");
+    _tos.data = (_tos.data > constants[ci]) ? 1 : 0;
+    s[_sp] = _tos;
+    ip += 4;
     NEXT();
 }
 

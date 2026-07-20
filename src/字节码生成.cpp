@@ -467,6 +467,18 @@ void BytecodeGenerator::visit(BinaryExpr &node)
 
     if (node.left)
         node.left->accept(*this);
+
+    // Superinstruction: SUB_ICONST when right is constant
+    if ((node.op == TK_减号 || node.op == TK_大于) && node.right)
+    {
+        if (auto *num = dynamic_cast<NumberLiteral *>(node.right.get()))
+        {
+            int ci = program.addConstant(num->value);
+            program.emit(node.op == TK_减号 ? Opcode::SUB_ICONST : Opcode::GT_ICONST, ci);
+            return;
+        }
+    }
+
     if (node.right)
         node.right->accept(*this);
 
