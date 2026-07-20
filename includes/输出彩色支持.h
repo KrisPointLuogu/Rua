@@ -4,23 +4,23 @@
 #include <unordered_map>
 #include "全局内容.h"
 
-using std::unordered_map;
 using std::string;
+using std::unordered_map;
 
 /*
-* 文本：需要输出的文本内容。
-* 颜色：控制输出文本的颜色，默认值为 "白" 如环境不支持彩色输出，将会不予操作颜色输出。
-* 换行：布尔值，传入 true 以表示将换行符加入文本末尾，默认值为 true
-* 样式：控制输出文本的样式，默认值为空，如环境不支持，将会不予操作样式输出。
-*/
+ * 文本：需要输出的文本内容。
+ * 颜色：控制输出文本的颜色，默认值为 "白" 如环境不支持彩色输出，将会不予操作颜色输出。
+ * 换行：布尔值，传入 true 以表示将换行符加入文本末尾，默认值为 true
+ * 样式：控制输出文本的样式，默认值为空，如环境不支持，将会不予操作样式输出。
+ */
 inline void 输出文本(
-    const string& 文本, 
-    const string& 颜色 = "白", 
-    bool 换行 = true, 
-    const string& 样式 = ""
-) {
+    const string &文本,
+    const string &颜色 = "白",
+    bool 换行 = true,
+    const string &样式 = "")
+{
 
-    static const unordered_map<string, const char*> 颜色表 = {
+    static const unordered_map<string, const char *> 颜色表 = {
         // 基础色
         {"红", "\033[31m"},
         {"R", "\033[31m"},
@@ -52,16 +52,15 @@ inline void 输出文本(
         // 背景色
         {"黑-背景", "\033[40m"},
         {"红-背景", "\033[41m"},
-        {"绿-背景", "\033[42m"}
-    };
+        {"绿-背景", "\033[42m"}};
 
-    static const unordered_map<string, const char*> 样式表 = {
+    static const unordered_map<string, const char *> 样式表 = {
         {"粗体", "\033[1m"},
         {"下划线", "\033[4m"},
-        {"闪烁", "\033[5m"}
-    };
+        {"闪烁", "\033[5m"}};
 
-    if(全局内容.支持ANSI){
+    if (全局内容.支持ANSI)
+    {
         // 当前环境支持ANSI
 
         // 使用局部缓冲区构建输出
@@ -70,39 +69,47 @@ inline void 输出文本(
 
         // 添加颜色代码
         auto 颜色查找结果 = 颜色表.find(颜色);
-        if (颜色查找结果 != 颜色表.end()) {
+        if (颜色查找结果 != 颜色表.end())
+        {
             输出缓冲区 += 颜色查找结果->second;
         }
 
         // 处理样式
-        if (!样式.empty()) {
+        if (!样式.empty())
+        {
             size_t 开始位置 = 0;
             const size_t npos = string::npos;
 
-            while (开始位置 < 样式.size()) {
+            while (开始位置 < 样式.size())
+            {
                 size_t 逗号位置 = 样式.find(',', 开始位置);
-                if (逗号位置 == npos) 逗号位置 = 样式.size();
+                if (逗号位置 == npos)
+                    逗号位置 = 样式.size();
 
                 string 单个样式名 = 样式.substr(开始位置, 逗号位置 - 开始位置);
                 auto 样式查找结果 = 样式表.find(单个样式名);
-                if (样式查找结果 != 样式表.end()) {
+                if (样式查找结果 != 样式表.end())
+                {
                     输出缓冲区 += 样式查找结果->second;
                 }
 
                 开始位置 = 逗号位置 + 1;
-                if (逗号位置 == 样式.size()) break;
+                if (逗号位置 == 样式.size())
+                    break;
             }
         }
 
         // 添加文本和重置码
         输出缓冲区 += 文本;
         输出缓冲区 += "\033[0m";
-        if (换行) 输出缓冲区 += "\n"; // 换行处理
+        if (换行)
+            输出缓冲区 += "\n"; // 换行处理
 
         // 一次性输出
         fputs(输出缓冲区.c_str(), stdout);
     }
-    else {
+    else
+    {
         // 当前环境不支持ANSI
 
         // 局部缓冲区
@@ -111,7 +118,8 @@ inline void 输出文本(
 
         // 去除ANSI
         输出缓冲区 += 文本;
-        if (换行) 输出缓冲区 += "\n";
+        if (换行)
+            输出缓冲区 += "\n";
 
         fputs(输出缓冲区.c_str(), stdout);
     }

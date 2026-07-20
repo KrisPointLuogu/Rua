@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <set>
 #include <unordered_map>
 #include <memory>
 #include "语法树.h"
@@ -33,53 +34,70 @@
 //   0x13  MOD     取模
 //
 
-enum class Opcode : uint8_t {
-    HALT  = 0x00,
+enum class Opcode : uint8_t
+{
+    HALT = 0x00,
     ICONST = 0x01,
     SCONST = 0x02,
-    ADD   = 0x03,
-    SUB   = 0x04,
-    MUL   = 0x05,
-    DIV   = 0x06,
-    EQ    = 0x07,
-    JMP   = 0x08,
-    JIF   = 0x09,
-    LOAD  = 0x0A,
+    ADD = 0x03,
+    SUB = 0x04,
+    MUL = 0x05,
+    DIV = 0x06,
+    EQ = 0x07,
+    JMP = 0x08,
+    JIF = 0x09,
+    LOAD = 0x0A,
     STORE = 0x0B,
-    CALL  = 0x0C,
+    CALL = 0x0C,
     PRINT = 0x0D,
-    RET   = 0x0E,
-    POP   = 0x0F,
-    LT    = 0x10,
-    GT    = 0x11,
-    NEQ   = 0x12,
-    MOD   = 0x13,
+    RET = 0x0E,
+    POP = 0x0F,
+    LT = 0x10,
+    GT = 0x11,
+    NEQ = 0x12,
+    MOD = 0x13,
+#ifdef OPTIMIZATION
+    SUB_ICONST = 0x14,
+    GT_ICONST = 0x15,
+#endif
 };
 
-inline bool hasOperand(Opcode op) {
-    switch (op) {
-    case Opcode::ICONST: case Opcode::SCONST:
-    case Opcode::JMP: case Opcode::JIF:
-    case Opcode::LOAD: case Opcode::STORE:
+inline bool hasOperand(Opcode op)
+{
+    switch (op)
+    {
+    case Opcode::ICONST:
+    case Opcode::SCONST:
+    case Opcode::JMP:
+    case Opcode::JIF:
+    case Opcode::LOAD:
+    case Opcode::STORE:
     case Opcode::CALL:
+#ifdef OPTIMIZATION
+    case Opcode::SUB_ICONST:
+    case Opcode::GT_ICONST:
+#endif
         return true;
     default:
         return false;
     }
 }
 
-inline int instructionSize(Opcode op) {
+inline int instructionSize(Opcode op)
+{
     return hasOperand(op) ? 5 : 1;
 }
 
-struct FunctionInfo {
+struct FunctionInfo
+{
     std::string name;
     int paramCount;
     int localCount;
     int codeOffset;
 };
 
-class BytecodeProgram {
+class BytecodeProgram
+{
 public:
     std::vector<uint8_t> code;
     std::vector<int> constants;
@@ -97,7 +115,8 @@ public:
     void print() const;
 };
 
-class BytecodeGenerator : public ASTVisitor {
+class BytecodeGenerator : public ASTVisitor
+{
 private:
     BytecodeProgram program;
     const SymbolTable *symTable;
@@ -128,4 +147,9 @@ private:
     void exitScope();
     int allocateSlot(const std::string &name);
     int lookupSlot(const std::string &name);
+
+#ifdef OPTIMIZATION
+    bool canConstantFold(int funcIdx, std::set<int> &visited);
+    bool tryConstantFold(int funcIdx, const std::vector<int> &constArgs);
+#endif
 };

@@ -37,7 +37,8 @@ using 令牌 = 词法分析器类::令牌;
 // ----------------------------------------------------------
 // ParserError —— 语法错误异常
 // ----------------------------------------------------------
-class ParserError : public std::runtime_error {
+class ParserError : public std::runtime_error
+{
 public:
     explicit ParserError(const std::string &message);
 };
@@ -45,7 +46,8 @@ public:
 // ----------------------------------------------------------
 // Parser —— 递归下降语法分析器
 // ----------------------------------------------------------
-class Parser {
+class Parser
+{
 private:
     const std::vector<令牌> &tokens;
     size_t current;

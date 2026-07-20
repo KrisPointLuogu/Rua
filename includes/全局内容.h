@@ -5,11 +5,12 @@
 using std::string;
 using std::vector;
 
-struct 全局 {
+struct 全局
+{
 	string 系统信息;
-    string 用户名;
-    bool 支持ANSI;
-    vector<string> 喵de语录 = {
+	string 用户名;
+	bool 支持ANSI;
+	vector<string> 喵de语录 = {
 		// 神经但可爱的东西...
 		"[刘小黑]为什么要把我放在这个方括号里呢",
 		"[刘小黑]LXH写代码累坏了唉",

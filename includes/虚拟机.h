@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <stdexcept>
+#include <memory>
 #include "字节码.h"
 
 //
@@ -15,41 +16,64 @@
 //   - IP：指令指针
 //
 
-enum class ValueType { INTEGER, STRING };
+enum class ValueType
+{
+    INTEGER,
+    STRING
+};
 
-struct Value {
+struct Value
+{
     ValueType type;
-    int intVal;
-    std::string strVal;
+    int data;
 
-    Value();
-    explicit Value(int v);
-    explicit Value(const std::string &s);
+    Value() : type(ValueType::INTEGER), data(0) {}
+    explicit Value(int v) : type(ValueType::INTEGER), data(v) {}
+    Value(int d, ValueType t) : type(t), data(d) {}
     void print() const;
 };
 
-class VMError : public std::runtime_error {
+class VMError : public std::runtime_error
+{
 public:
     explicit VMError(const std::string &message);
 };
 
-class VM {
+class VM
+{
 private:
+    static constexpr int STACK_CAP = 65536;
+    static constexpr int CALL_CAP = 65536;
+    static constexpr int FRAME_CAP = 65536;
+
+    std::unique_ptr<Value[]> stackData;
+    std::unique_ptr<int[]> callStackData;
+    std::unique_ptr<int[]> frameStackData;
+
+    int sp;
+    int cp;
+    int fp;
+
     const BytecodeProgram *program;
-    std::vector<Value> stack;
-    std::vector<int> callStack;
-    std::vector<int> frameStack;
     int ip;
 
 public:
     VM();
     void run(const BytecodeProgram &prog);
-    int getStackDepth() const;
-    int getCallDepth() const;
+    int getStackDepth() const { return sp + 1; }
+    int getCallDepth() const { return cp + 1; }
 
 private:
-    Value pop();
-    void push(const Value &val);
-    Value peek(int offset = 0) const;
-    void execute(Opcode op);
+    inline Value pop()
+    {
+        return stackData[sp--];
+    }
+    inline void push(const Value &val)
+    {
+        stackData[++sp] = val;
+    }
+    inline Value peek(int offset = 0) const
+    {
+        return stackData[sp - offset];
+    }
 };
