@@ -79,7 +79,7 @@ inline void 调试输出(
 /*
  * 当前调试输出函数不可用
  */
-void 调试输出(
+inline void 调试输出(
     string 信息,
     const string &颜色 = "WW",
     bool 换行 = true,

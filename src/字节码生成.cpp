@@ -302,6 +302,9 @@ void BytecodeGenerator::visit(Program &node)
         }
     }
 
+    if (mainIdx < 0)
+        throw std::runtime_error("内部错误：未找到入口函数 主函数");
+
     const FunctionInfo &mainFunc = program.functions[mainIdx];
     for (int i = 0; i < mainFunc.paramCount; i++)
         program.emit(Opcode::ICONST, program.addConstant(0));
@@ -498,13 +501,13 @@ void BytecodeGenerator::visit(BinaryExpr &node)
         break;
     case TK_大于等于:
         program.emit(Opcode::LT);
-        program.emit(Opcode::ICONST, program.addConstant(1));
-        program.emit(Opcode::SUB);
+        program.emit(Opcode::ICONST, program.addConstant(0));
+        program.emit(Opcode::EQ);
         break;
     case TK_小于等于:
         program.emit(Opcode::GT);
-        program.emit(Opcode::ICONST, program.addConstant(1));
-        program.emit(Opcode::SUB);
+        program.emit(Opcode::ICONST, program.addConstant(0));
+        program.emit(Opcode::EQ);
         break;
     }
 }
