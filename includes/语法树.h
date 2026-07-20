@@ -28,7 +28,8 @@ class Identifier;
 // ----------------------------------------------------------
 // ASTVisitor —— Visitor 模式基类
 // ----------------------------------------------------------
-class ASTVisitor {
+class ASTVisitor
+{
 public:
     virtual ~ASTVisitor() = default;
     virtual void visit(Program &node) = 0;
@@ -49,16 +50,28 @@ public:
 // ----------------------------------------------------------
 // NodeType —— 所有 AST 节点类型的枚举
 // ----------------------------------------------------------
-enum class NodeType {
-    PROGRAM, FUNCTION, BLOCK, VAR_DECL, IF_STMT, WHILE_STMT,
-    RETURN_STMT, EXPR_STMT, BINARY_EXPR, CALL_EXPR,
-    NUMBER_LITERAL, STRING_LITERAL, IDENTIFIER
+enum class NodeType
+{
+    PROGRAM,
+    FUNCTION,
+    BLOCK,
+    VAR_DECL,
+    IF_STMT,
+    WHILE_STMT,
+    RETURN_STMT,
+    EXPR_STMT,
+    BINARY_EXPR,
+    CALL_EXPR,
+    NUMBER_LITERAL,
+    STRING_LITERAL,
+    IDENTIFIER
 };
 
 // ----------------------------------------------------------
 // ASTNode —— AST 节点基类
 // ----------------------------------------------------------
-class ASTNode {
+class ASTNode
+{
 public:
     virtual ~ASTNode() = default;
     virtual NodeType getType() const = 0;
@@ -69,7 +82,8 @@ public:
 
 // ==================== 具体节点类型 ====================
 
-class Program : public ASTNode {
+class Program : public ASTNode
+{
 public:
     std::vector<std::unique_ptr<Function>> functions;
     std::vector<std::unique_ptr<ASTNode>> topLevelStmts;
@@ -77,7 +91,8 @@ public:
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class Function : public ASTNode {
+class Function : public ASTNode
+{
 public:
     std::string name;
     std::vector<std::string> params;
@@ -86,14 +101,16 @@ public:
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class Block : public ASTNode {
+class Block : public ASTNode
+{
 public:
     std::vector<std::unique_ptr<ASTNode>> statements;
     NodeType getType() const override { return NodeType::BLOCK; }
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class VarDecl : public ASTNode {
+class VarDecl : public ASTNode
+{
 public:
     std::string name;
     std::unique_ptr<ASTNode> initializer;
@@ -101,7 +118,8 @@ public:
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class IfStmt : public ASTNode {
+class IfStmt : public ASTNode
+{
 public:
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<Block> thenBranch;
@@ -110,7 +128,8 @@ public:
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class WhileStmt : public ASTNode {
+class WhileStmt : public ASTNode
+{
 public:
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<Block> body;
@@ -118,21 +137,24 @@ public:
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class ReturnStmt : public ASTNode {
+class ReturnStmt : public ASTNode
+{
 public:
     std::unique_ptr<ASTNode> value;
     NodeType getType() const override { return NodeType::RETURN_STMT; }
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class ExprStmt : public ASTNode {
+class ExprStmt : public ASTNode
+{
 public:
     std::unique_ptr<ASTNode> expression;
     NodeType getType() const override { return NodeType::EXPR_STMT; }
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class BinaryExpr : public ASTNode {
+class BinaryExpr : public ASTNode
+{
 public:
     std::unique_ptr<ASTNode> left;
     std::unique_ptr<ASTNode> right;
@@ -141,7 +163,8 @@ public:
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class CallExpr : public ASTNode {
+class CallExpr : public ASTNode
+{
 public:
     std::string callee;
     std::vector<std::unique_ptr<ASTNode>> args;
@@ -149,21 +172,24 @@ public:
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class NumberLiteral : public ASTNode {
+class NumberLiteral : public ASTNode
+{
 public:
     int value;
     NodeType getType() const override { return NodeType::NUMBER_LITERAL; }
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class StringLiteral : public ASTNode {
+class StringLiteral : public ASTNode
+{
 public:
     std::string value;
     NodeType getType() const override { return NodeType::STRING_LITERAL; }
     void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
 };
 
-class Identifier : public ASTNode {
+class Identifier : public ASTNode
+{
 public:
     std::string name;
     NodeType getType() const override { return NodeType::IDENTIFIER; }

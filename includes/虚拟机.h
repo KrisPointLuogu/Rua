@@ -15,9 +15,14 @@
 //   - IP：指令指针
 //
 
-enum class ValueType { INTEGER, STRING };
+enum class ValueType
+{
+    INTEGER,
+    STRING
+};
 
-struct Value {
+struct Value
+{
     ValueType type;
     int intVal;
     std::string strVal;
@@ -28,12 +33,14 @@ struct Value {
     void print() const;
 };
 
-class VMError : public std::runtime_error {
+class VMError : public std::runtime_error
+{
 public:
     explicit VMError(const std::string &message);
 };
 
-class VM {
+class VM
+{
 private:
     const BytecodeProgram *program;
     std::vector<Value> stack;
@@ -51,5 +58,4 @@ private:
     Value pop();
     void push(const Value &val);
     Value peek(int offset = 0) const;
-    void execute(Opcode op);
 };

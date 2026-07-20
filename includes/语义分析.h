@@ -13,7 +13,8 @@
 // ----------------------------------------------------------
 // SemanticError —— 语义错误异常
 // ----------------------------------------------------------
-class SemanticError : public std::runtime_error {
+class SemanticError : public std::runtime_error
+{
 public:
     explicit SemanticError(const std::string &message);
 };
@@ -21,14 +22,17 @@ public:
 // ----------------------------------------------------------
 // SymbolKind —— 符号种类
 // ----------------------------------------------------------
-enum class SymbolKind {
-    VARIABLE, FUNCTION
+enum class SymbolKind
+{
+    VARIABLE,
+    FUNCTION
 };
 
 // ----------------------------------------------------------
 // Symbol —— 符号表中的单个条目
 // ----------------------------------------------------------
-struct Symbol {
+struct Symbol
+{
     std::string name;
     SymbolKind kind;
     int line;
@@ -40,7 +44,8 @@ struct Symbol {
 // ----------------------------------------------------------
 // SymbolTable —— 符号表，支持嵌套作用域
 // ----------------------------------------------------------
-class SymbolTable {
+class SymbolTable
+{
 private:
     std::vector<std::unordered_map<std::string, Symbol>> scopes;
     std::unordered_map<std::string, Symbol> functions;
@@ -60,7 +65,8 @@ public:
 // ----------------------------------------------------------
 // SemanticAnalyzer —— 语义分析器（Visitor 模式）
 // ----------------------------------------------------------
-class SemanticAnalyzer : public ASTVisitor {
+class SemanticAnalyzer : public ASTVisitor
+{
 private:
     SymbolTable symbolTable;
     std::string currentFunction;

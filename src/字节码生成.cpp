@@ -25,7 +25,8 @@ using std::unordered_map;
 using std::vector;
 
 // 令牌类型常量
-namespace {
+namespace
+{
     const int TK_等号 = 21;
     const int TK_加号 = 22;
     const int TK_减号 = 23;
@@ -36,12 +37,16 @@ namespace {
     const int TK_大于 = 28;
     const int TK_小于 = 29;
     const int TK_模 = 30;
+    const int TK_大于等于 = 44;
+    const int TK_小于等于 = 45;
 }
 
 // ==================== BytecodeProgram ====================
 
-int BytecodeProgram::addConstant(int value) {
-    for (size_t i = 0; i < constants.size(); i++) {
+int BytecodeProgram::addConstant(int value)
+{
+    for (size_t i = 0; i < constants.size(); i++)
+    {
         if (constants[i] == value)
             return static_cast<int>(i);
     }
@@ -49,8 +54,10 @@ int BytecodeProgram::addConstant(int value) {
     return static_cast<int>(constants.size() - 1);
 }
 
-int BytecodeProgram::addString(const string &value) {
-    for (size_t i = 0; i < strings.size(); i++) {
+int BytecodeProgram::addString(const string &value)
+{
+    for (size_t i = 0; i < strings.size(); i++)
+    {
         if (strings[i] == value)
             return static_cast<int>(i);
     }
@@ -58,7 +65,8 @@ int BytecodeProgram::addString(const string &value) {
     return static_cast<int>(strings.size() - 1);
 }
 
-int BytecodeProgram::addFunction(const string &name, int paramCount) {
+int BytecodeProgram::addFunction(const string &name, int paramCount)
+{
     FunctionInfo info;
     info.name = name;
     info.paramCount = paramCount;
@@ -68,11 +76,13 @@ int BytecodeProgram::addFunction(const string &name, int paramCount) {
     return static_cast<int>(functions.size() - 1);
 }
 
-void BytecodeProgram::emit(Opcode op) {
+void BytecodeProgram::emit(Opcode op)
+{
     code.push_back(static_cast<uint8_t>(op));
 }
 
-void BytecodeProgram::emit(Opcode op, int operand) {
+void BytecodeProgram::emit(Opcode op, int operand)
+{
     code.push_back(static_cast<uint8_t>(op));
     code.push_back(static_cast<uint8_t>(operand & 0xFF));
     code.push_back(static_cast<uint8_t>((operand >> 8) & 0xFF));
@@ -80,47 +90,74 @@ void BytecodeProgram::emit(Opcode op, int operand) {
     code.push_back(static_cast<uint8_t>((operand >> 24) & 0xFF));
 }
 
-int BytecodeProgram::getCodeSize() const {
+int BytecodeProgram::getCodeSize() const
+{
     return static_cast<int>(code.size());
 }
 
-void BytecodeProgram::patchOperand(int offset, int value) {
+void BytecodeProgram::patchOperand(int offset, int value)
+{
     code[offset + 1] = static_cast<uint8_t>(value & 0xFF);
     code[offset + 2] = static_cast<uint8_t>((value >> 8) & 0xFF);
     code[offset + 3] = static_cast<uint8_t>((value >> 16) & 0xFF);
     code[offset + 4] = static_cast<uint8_t>((value >> 24) & 0xFF);
 }
 
-static const char *opcodeName(Opcode op) {
-    switch (op) {
-    case Opcode::HALT: return "HALT";
-    case Opcode::ICONST: return "ICONST";
-    case Opcode::SCONST: return "SCONST";
-    case Opcode::ADD: return "ADD";
-    case Opcode::SUB: return "SUB";
-    case Opcode::MUL: return "MUL";
-    case Opcode::DIV: return "DIV";
-    case Opcode::EQ: return "EQ";
-    case Opcode::JMP: return "JMP";
-    case Opcode::JIF: return "JIF";
-    case Opcode::LOAD: return "LOAD";
-    case Opcode::STORE: return "STORE";
-    case Opcode::CALL: return "CALL";
-    case Opcode::PRINT: return "PRINT";
-    case Opcode::RET: return "RET";
-    case Opcode::POP: return "POP";
-    case Opcode::LT: return "LT";
-    case Opcode::GT: return "GT";
-    case Opcode::NEQ: return "NEQ";
-    case Opcode::MOD: return "MOD";
-    default: return "???";
+static const char *opcodeName(Opcode op)
+{
+    switch (op)
+    {
+    case Opcode::HALT:
+        return "HALT";
+    case Opcode::ICONST:
+        return "ICONST";
+    case Opcode::SCONST:
+        return "SCONST";
+    case Opcode::ADD:
+        return "ADD";
+    case Opcode::SUB:
+        return "SUB";
+    case Opcode::MUL:
+        return "MUL";
+    case Opcode::DIV:
+        return "DIV";
+    case Opcode::EQ:
+        return "EQ";
+    case Opcode::JMP:
+        return "JMP";
+    case Opcode::JIF:
+        return "JIF";
+    case Opcode::LOAD:
+        return "LOAD";
+    case Opcode::STORE:
+        return "STORE";
+    case Opcode::CALL:
+        return "CALL";
+    case Opcode::PRINT:
+        return "PRINT";
+    case Opcode::RET:
+        return "RET";
+    case Opcode::POP:
+        return "POP";
+    case Opcode::LT:
+        return "LT";
+    case Opcode::GT:
+        return "GT";
+    case Opcode::NEQ:
+        return "NEQ";
+    case Opcode::MOD:
+        return "MOD";
+    default:
+        return "???";
     }
 }
 
-void BytecodeProgram::print() const {
+void BytecodeProgram::print() const
+{
     std::cout << "====== 字节码程序 ======\n\n";
     std::cout << "--- 函数表 ---\n";
-    for (size_t i = 0; i < functions.size(); i++) {
+    for (size_t i = 0; i < functions.size(); i++)
+    {
         const auto &f = functions[i];
         std::cout << "  [" << i << "] " << f.name
                   << " (参数=" << f.paramCount
@@ -138,18 +175,19 @@ void BytecodeProgram::print() const {
 
     std::cout << "\n--- 字节码 ---\n";
     int ip = 0;
-    while (ip < static_cast<int>(code.size())) {
+    while (ip < static_cast<int>(code.size()))
+    {
         Opcode op = static_cast<Opcode>(code[ip]);
         std::cout << "  " << ip << ":\t" << opcodeName(op);
 
-        if (hasOperand(op)) {
-            int operand = static_cast<int>(code[ip + 1])
-                        | (static_cast<int>(code[ip + 2]) << 8)
-                        | (static_cast<int>(code[ip + 3]) << 16)
-                        | (static_cast<int>(code[ip + 4]) << 24);
+        if (hasOperand(op))
+        {
+            int operand = static_cast<int>(code[ip + 1]) | (static_cast<int>(code[ip + 2]) << 8) | (static_cast<int>(code[ip + 3]) << 16) | (static_cast<int>(code[ip + 4]) << 24);
             std::cout << " " << operand;
             ip += 5;
-        } else {
+        }
+        else
+        {
             ip += 1;
         }
         std::cout << "\n";
@@ -162,28 +200,34 @@ void BytecodeProgram::print() const {
 BytecodeGenerator::BytecodeGenerator(const SymbolTable &symbolTable)
     : symTable(&symbolTable) {}
 
-BytecodeProgram BytecodeGenerator::generate(Program &ast) {
+BytecodeProgram BytecodeGenerator::generate(Program &ast)
+{
     ast.accept(*this);
     return program;
 }
 
-void BytecodeGenerator::enterScope() {
+void BytecodeGenerator::enterScope()
+{
     slotMaps.emplace_back();
 }
 
-void BytecodeGenerator::exitScope() {
+void BytecodeGenerator::exitScope()
+{
     slotMaps.pop_back();
 }
 
-int BytecodeGenerator::allocateSlot(const string &name) {
+int BytecodeGenerator::allocateSlot(const string &name)
+{
     int slot = totalSlotCount;
     slotMaps.back()[name] = slot;
     totalSlotCount++;
     return slot;
 }
 
-int BytecodeGenerator::lookupSlot(const string &name) {
-    for (int i = static_cast<int>(slotMaps.size()) - 1; i >= 0; i--) {
+int BytecodeGenerator::lookupSlot(const string &name)
+{
+    for (int i = static_cast<int>(slotMaps.size()) - 1; i >= 0; i--)
+    {
         auto it = slotMaps[i].find(name);
         if (it != slotMaps[i].end())
             return it->second;
@@ -193,12 +237,16 @@ int BytecodeGenerator::lookupSlot(const string &name) {
 
 // ==================== Visitor 实现 ====================
 
-void BytecodeGenerator::visit(Program &node) {
+void BytecodeGenerator::visit(Program &node)
+{
     // 顶层语句 → 隐式 主函数
-    if (!node.topLevelStmts.empty()) {
+    if (!node.topLevelStmts.empty())
+    {
         bool hasExplicitMain = false;
-        for (auto &f : node.functions) {
-            if (f->name == "主函数") {
+        for (auto &f : node.functions)
+        {
+            if (f->name == "主函数")
+            {
                 hasExplicitMain = true;
                 auto oldBody = std::move(f->body);
                 f->body = make_unique<Block>();
@@ -209,7 +257,8 @@ void BytecodeGenerator::visit(Program &node) {
                 break;
             }
         }
-        if (!hasExplicitMain) {
+        if (!hasExplicitMain)
+        {
             auto mainFunc = make_unique<Function>();
             mainFunc->name = "主函数";
             mainFunc->body = make_unique<Block>();
@@ -220,7 +269,8 @@ void BytecodeGenerator::visit(Program &node) {
         node.topLevelStmts.clear();
     }
 
-    if (node.functions.empty()) {
+    if (node.functions.empty())
+    {
         auto mainFunc = make_unique<Function>();
         mainFunc->name = "主函数";
         mainFunc->body = make_unique<Block>();
@@ -233,7 +283,8 @@ void BytecodeGenerator::visit(Program &node) {
     int jmpPos = program.getCodeSize();
     program.emit(Opcode::JMP, 0);
 
-    for (auto &func : node.functions) {
+    for (auto &func : node.functions)
+    {
         currentFunction = func->name;
         func->accept(*this);
     }
@@ -242,8 +293,10 @@ void BytecodeGenerator::visit(Program &node) {
     program.patchOperand(jmpPos, entryPos - (jmpPos + 5));
 
     int mainIdx = -1;
-    for (int i = 0; i < static_cast<int>(program.functions.size()); i++) {
-        if (program.functions[i].name == "主函数") {
+    for (int i = 0; i < static_cast<int>(program.functions.size()); i++)
+    {
+        if (program.functions[i].name == "主函数")
+        {
             mainIdx = i;
             break;
         }
@@ -258,10 +311,13 @@ void BytecodeGenerator::visit(Program &node) {
     program.entryPoint = "主函数";
 }
 
-void BytecodeGenerator::visit(Function &node) {
+void BytecodeGenerator::visit(Function &node)
+{
     int funcIdx = -1;
-    for (int i = 0; i < static_cast<int>(program.functions.size()); i++) {
-        if (program.functions[i].name == node.name) {
+    for (int i = 0; i < static_cast<int>(program.functions.size()); i++)
+    {
+        if (program.functions[i].name == node.name)
+        {
             funcIdx = i;
             break;
         }
@@ -286,7 +342,8 @@ void BytecodeGenerator::visit(Function &node) {
     program.emit(Opcode::RET);
 }
 
-void BytecodeGenerator::visit(Block &node) {
+void BytecodeGenerator::visit(Block &node)
+{
     enterScope();
 
     for (auto &stmt : node.statements)
@@ -295,7 +352,8 @@ void BytecodeGenerator::visit(Block &node) {
     exitScope();
 }
 
-void BytecodeGenerator::visit(VarDecl &node) {
+void BytecodeGenerator::visit(VarDecl &node)
+{
     int slot = allocateSlot(node.name);
 
     if (node.initializer)
@@ -306,7 +364,8 @@ void BytecodeGenerator::visit(VarDecl &node) {
     program.emit(Opcode::STORE, slot);
 }
 
-void BytecodeGenerator::visit(IfStmt &node) {
+void BytecodeGenerator::visit(IfStmt &node)
+{
     node.condition->accept(*this);
 
     int jifPos = program.getCodeSize();
@@ -314,7 +373,8 @@ void BytecodeGenerator::visit(IfStmt &node) {
 
     node.thenBranch->accept(*this);
 
-    if (node.elseBranch) {
+    if (node.elseBranch)
+    {
         int jmpPos = program.getCodeSize();
         program.emit(Opcode::JMP, 0);
 
@@ -325,13 +385,16 @@ void BytecodeGenerator::visit(IfStmt &node) {
 
         int afterElse = program.getCodeSize();
         program.patchOperand(jmpPos, afterElse - (jmpPos + 5));
-    } else {
+    }
+    else
+    {
         int afterIf = program.getCodeSize();
         program.patchOperand(jifPos, afterIf - (jifPos + 5));
     }
 }
 
-void BytecodeGenerator::visit(WhileStmt &node) {
+void BytecodeGenerator::visit(WhileStmt &node)
+{
     int loopStart = program.getCodeSize();
 
     node.condition->accept(*this);
@@ -348,7 +411,8 @@ void BytecodeGenerator::visit(WhileStmt &node) {
     program.patchOperand(jifPos, afterLoop - (jifPos + 5));
 }
 
-void BytecodeGenerator::visit(ReturnStmt &node) {
+void BytecodeGenerator::visit(ReturnStmt &node)
+{
     if (node.value)
         node.value->accept(*this);
     else
@@ -357,11 +421,14 @@ void BytecodeGenerator::visit(ReturnStmt &node) {
     program.emit(Opcode::RET);
 }
 
-void BytecodeGenerator::visit(ExprStmt &node) {
-    if (!node.expression) return;
+void BytecodeGenerator::visit(ExprStmt &node)
+{
+    if (!node.expression)
+        return;
 
     bool isMiaoCall = false;
-    if (auto *call = dynamic_cast<CallExpr *>(node.expression.get())) {
+    if (auto *call = dynamic_cast<CallExpr *>(node.expression.get()))
+    {
         if (call->callee == "喵叫")
             isMiaoCall = true;
     }
@@ -372,12 +439,16 @@ void BytecodeGenerator::visit(ExprStmt &node) {
         program.emit(Opcode::POP);
 }
 
-void BytecodeGenerator::visit(BinaryExpr &node) {
+void BytecodeGenerator::visit(BinaryExpr &node)
+{
     // 赋值：右值求值 → STORE
-    if (node.op == TK_等号) {
-        if (auto *id = dynamic_cast<Identifier *>(node.left.get())) {
+    if (node.op == TK_等号)
+    {
+        if (auto *id = dynamic_cast<Identifier *>(node.left.get()))
+        {
             int slot = lookupSlot(id->name);
-            if (slot < 0) {
+            if (slot < 0)
+            {
                 std::cerr << "内部错误：未找到变量 '" << id->name << "' 的槽位" << std::endl;
                 return;
             }
@@ -391,43 +462,82 @@ void BytecodeGenerator::visit(BinaryExpr &node) {
         return;
     }
 
-    if (node.left) node.left->accept(*this);
-    if (node.right) node.right->accept(*this);
+    if (node.left)
+        node.left->accept(*this);
+    if (node.right)
+        node.right->accept(*this);
 
-    switch (node.op) {
-    case TK_加号: program.emit(Opcode::ADD); break;
-    case TK_减号: program.emit(Opcode::SUB); break;
-    case TK_乘号: program.emit(Opcode::MUL); break;
-    case TK_除号: program.emit(Opcode::DIV); break;
-    case TK_模:   program.emit(Opcode::MOD); break;
-    case TK_等于: program.emit(Opcode::EQ); break;
-    case TK_不等于: program.emit(Opcode::NEQ); break;
-    case TK_大于: program.emit(Opcode::GT); break;
-    case TK_小于: program.emit(Opcode::LT); break;
+    switch (node.op)
+    {
+    case TK_加号:
+        program.emit(Opcode::ADD);
+        break;
+    case TK_减号:
+        program.emit(Opcode::SUB);
+        break;
+    case TK_乘号:
+        program.emit(Opcode::MUL);
+        break;
+    case TK_除号:
+        program.emit(Opcode::DIV);
+        break;
+    case TK_模:
+        program.emit(Opcode::MOD);
+        break;
+    case TK_等于:
+        program.emit(Opcode::EQ);
+        break;
+    case TK_不等于:
+        program.emit(Opcode::NEQ);
+        break;
+    case TK_大于:
+        program.emit(Opcode::GT);
+        break;
+    case TK_小于:
+        program.emit(Opcode::LT);
+        break;
+    case TK_大于等于:
+        program.emit(Opcode::LT);
+        program.emit(Opcode::ICONST, program.addConstant(1));
+        program.emit(Opcode::SUB);
+        break;
+    case TK_小于等于:
+        program.emit(Opcode::GT);
+        program.emit(Opcode::ICONST, program.addConstant(1));
+        program.emit(Opcode::SUB);
+        break;
     }
 }
 
-void BytecodeGenerator::visit(CallExpr &node) {
+void BytecodeGenerator::visit(CallExpr &node)
+{
     int funcIdx = -1;
-    for (int i = 0; i < static_cast<int>(program.functions.size()); i++) {
-        if (program.functions[i].name == node.callee) {
+    for (int i = 0; i < static_cast<int>(program.functions.size()); i++)
+    {
+        if (program.functions[i].name == node.callee)
+        {
             funcIdx = i;
             break;
         }
     }
 
-    if (node.callee == "喵叫") {
+    if (node.callee == "喵叫")
+    {
         for (int i = static_cast<int>(node.args.size()) - 1; i >= 0; i--)
             node.args[i]->accept(*this);
 
-        for (size_t i = 0; i < node.args.size(); i++) {
+        for (size_t i = 0; i < node.args.size(); i++)
+        {
             program.emit(Opcode::PRINT);
-            if (i < node.args.size() - 1) {
+            if (i < node.args.size() - 1)
+            {
                 program.emit(Opcode::SCONST, program.addString(" "));
                 program.emit(Opcode::PRINT);
             }
         }
-    } else {
+    }
+    else
+    {
         for (auto &arg : node.args)
             arg->accept(*this);
 
@@ -435,15 +545,18 @@ void BytecodeGenerator::visit(CallExpr &node) {
     }
 }
 
-void BytecodeGenerator::visit(NumberLiteral &node) {
+void BytecodeGenerator::visit(NumberLiteral &node)
+{
     program.emit(Opcode::ICONST, program.addConstant(node.value));
 }
 
-void BytecodeGenerator::visit(StringLiteral &node) {
+void BytecodeGenerator::visit(StringLiteral &node)
+{
     program.emit(Opcode::SCONST, program.addString(node.value));
 }
 
-void BytecodeGenerator::visit(Identifier &node) {
+void BytecodeGenerator::visit(Identifier &node)
+{
     int slot = lookupSlot(node.name);
     if (slot >= 0)
         program.emit(Opcode::LOAD, slot);
