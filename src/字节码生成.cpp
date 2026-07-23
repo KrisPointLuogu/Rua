@@ -125,6 +125,8 @@ static const char *opcodeName(Opcode op)
 	case Opcode::CALL:  return "CALL";
 	case Opcode::RET:   return "RET";
 	case Opcode::PRINT: return "PRINT";
+	case Opcode::LE:    return "LE";
+	case Opcode::GE:    return "GE";
 	default:            return "???";
 	}
 }
@@ -181,6 +183,7 @@ void BytecodeProgram::print() const
 		case Opcode::DIV: case Opcode::MOD:
 		case Opcode::EQ:  case Opcode::NE:
 		case Opcode::LT:  case Opcode::GT:
+		case Opcode::LE:  case Opcode::GE:
 			std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r" << (int)rs2;
 			break;
 		case Opcode::JMP:
@@ -238,6 +241,7 @@ int BytecodeGenerator::allocReg(const string &name)
 	int reg = totalReg;
 	regMaps.back()[name] = reg;
 	totalReg++;
+	if (reg > maxReg) maxReg = reg;
 	return reg;
 }
 
@@ -254,7 +258,9 @@ int BytecodeGenerator::lookupReg(const string &name)
 
 int BytecodeGenerator::allocTemp()
 {
-	return tempReg++;
+	int r = tempReg++;
+	if (r > maxReg) maxReg = r;
+	return r;
 }
 
 // ==================== Visitor 实现 ====================
@@ -362,6 +368,7 @@ int BytecodeGenerator::visit(Function &node)
 	// r0 保留给返回值，参数从 r1 开始分配
 	totalReg = 1;
 	tempReg = 1;
+	maxReg = 0;
 	for (const auto &param : node.params)
 		allocReg(param);
 	tempReg = totalReg;
@@ -369,7 +376,7 @@ int BytecodeGenerator::visit(Function &node)
 	node.body->accept(*this);
 
 	funcInfo.localCount = totalReg - static_cast<int>(node.params.size());
-	funcInfo.regCount = totalReg + 64;  // +64 临时寄存器预算
+	funcInfo.regCount = maxReg + 1;
 
 	exitScope();
 
@@ -550,23 +557,11 @@ int BytecodeGenerator::visit(BinaryExpr &node)
 		program.emit(Opcode::LT, resultReg, leftReg, rightReg);
 		break;
 	case TK_大于等于:
-	{
-		int tmpReg = allocTemp();
-		program.emit(Opcode::LT, tmpReg, leftReg, rightReg);
-		int zeroReg = allocTemp();
-		program.emit(Opcode::MOVI, zeroReg, 0, 0, program.addConstant(0));
-		program.emit(Opcode::EQ, resultReg, tmpReg, zeroReg);
+		program.emit(Opcode::GE, resultReg, leftReg, rightReg);
 		break;
-	}
 	case TK_小于等于:
-	{
-		int tmpReg = allocTemp();
-		program.emit(Opcode::GT, tmpReg, leftReg, rightReg);
-		int zeroReg = allocTemp();
-		program.emit(Opcode::MOVI, zeroReg, 0, 0, program.addConstant(0));
-		program.emit(Opcode::EQ, resultReg, tmpReg, zeroReg);
+		program.emit(Opcode::LE, resultReg, leftReg, rightReg);
 		break;
-	}
 	}
 	return resultReg;
 }
@@ -623,6 +618,7 @@ int BytecodeGenerator::visit(CallExpr &node)
 		int argReg = arg->accept(*this);
 		program.emit(Opcode::PUSH, 0, argReg);
 	}
+	tempReg = maxReg + 1;
 
 	program.emit(Opcode::CALL, 0, 0, 0, funcIdx);
 

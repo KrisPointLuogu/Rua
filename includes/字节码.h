@@ -45,6 +45,8 @@ enum class Opcode : uint8_t
 	CALL = 0x10, // 调用 functions[extra]，参数已 PUSH
 	RET  = 0x11, // 返回，结果在 r0
 	PRINT= 0x12, // 输出 reg(rs1)
+	LE   = 0x13, // rd = (rs1 <= rs2) ? 1 : 0
+	GE   = 0x14, // rd = (rs1 >= rs2) ? 1 : 0
 };
 
 struct FunctionInfo
@@ -80,10 +82,10 @@ private:
 	BytecodeProgram program;
 	const SymbolTable *symTable;
 
-	// 寄存器分配
 	std::vector<std::unordered_map<std::string, int>> regMaps;
 	int totalReg = 0;  // 已分配的永久寄存器数（参数 + 局部变量）
 	int tempReg = 0;   // 下一个临时寄存器
+	int maxReg = 0;    // 实际使用的最大寄存器索引
 	std::string currentFunction;
 
 	// 当前函数待回填的信息
