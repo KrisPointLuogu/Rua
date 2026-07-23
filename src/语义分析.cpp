@@ -124,7 +124,7 @@ const SymbolTable &SemanticAnalyzer::getSymbolTable() const
 
 // ==================== Visitor 实现 ====================
 
-void SemanticAnalyzer::visit(Program &node)
+int SemanticAnalyzer::visit(Program &node)
 {
     symbolTable.declareFunction("喵叫", -1, 0);
     symbolTable.declareFunction("运行", 1, 0);
@@ -151,9 +151,11 @@ void SemanticAnalyzer::visit(Program &node)
     {
         stmt->accept(*this);
     }
+
+    return 0;
 }
 
-void SemanticAnalyzer::visit(Function &node)
+int SemanticAnalyzer::visit(Function &node)
 {
     symbolTable.enterScope();
 
@@ -176,9 +178,10 @@ void SemanticAnalyzer::visit(Function &node)
     }
 
     symbolTable.exitScope();
+    return 0;
 }
 
-void SemanticAnalyzer::visit(Block &node)
+int SemanticAnalyzer::visit(Block &node)
 {
     symbolTable.enterScope();
 
@@ -188,9 +191,10 @@ void SemanticAnalyzer::visit(Block &node)
     }
 
     symbolTable.exitScope();
+    return 0;
 }
 
-void SemanticAnalyzer::visit(VarDecl &node)
+int SemanticAnalyzer::visit(VarDecl &node)
 {
     symbolTable.declareVariable(node.name, node.line);
 
@@ -198,9 +202,10 @@ void SemanticAnalyzer::visit(VarDecl &node)
     {
         node.initializer->accept(*this);
     }
+    return 0;
 }
 
-void SemanticAnalyzer::visit(IfStmt &node)
+int SemanticAnalyzer::visit(IfStmt &node)
 {
     node.condition->accept(*this);
     node.thenBranch->accept(*this);
@@ -209,16 +214,18 @@ void SemanticAnalyzer::visit(IfStmt &node)
     {
         node.elseBranch->accept(*this);
     }
+    return 0;
 }
 
-void SemanticAnalyzer::visit(WhileStmt &node)
+int SemanticAnalyzer::visit(WhileStmt &node)
 {
     node.condition->accept(*this);
     if (node.body)
         node.body->accept(*this);
+    return 0;
 }
 
-void SemanticAnalyzer::visit(ReturnStmt &node)
+int SemanticAnalyzer::visit(ReturnStmt &node)
 {
     if (!inFunction)
     {
@@ -231,25 +238,28 @@ void SemanticAnalyzer::visit(ReturnStmt &node)
     {
         node.value->accept(*this);
     }
+    return 0;
 }
 
-void SemanticAnalyzer::visit(ExprStmt &node)
+int SemanticAnalyzer::visit(ExprStmt &node)
 {
     if (node.expression)
     {
         node.expression->accept(*this);
     }
+    return 0;
 }
 
-void SemanticAnalyzer::visit(BinaryExpr &node)
+int SemanticAnalyzer::visit(BinaryExpr &node)
 {
     if (node.left)
         node.left->accept(*this);
     if (node.right)
         node.right->accept(*this);
+    return 0;
 }
 
-void SemanticAnalyzer::visit(CallExpr &node)
+int SemanticAnalyzer::visit(CallExpr &node)
 {
     Symbol *funcSym = symbolTable.lookupFunction(node.callee);
     if (!funcSym)
@@ -273,12 +283,13 @@ void SemanticAnalyzer::visit(CallExpr &node)
     {
         arg->accept(*this);
     }
+    return 0;
 }
 
-void SemanticAnalyzer::visit(NumberLiteral &) {}
-void SemanticAnalyzer::visit(StringLiteral &) {}
+int SemanticAnalyzer::visit(NumberLiteral &) { return 0; }
+int SemanticAnalyzer::visit(StringLiteral &) { return 0; }
 
-void SemanticAnalyzer::visit(Identifier &node)
+int SemanticAnalyzer::visit(Identifier &node)
 {
     Symbol *sym = symbolTable.lookup(node.name);
     if (!sym)
@@ -287,4 +298,5 @@ void SemanticAnalyzer::visit(Identifier &node)
         oss << "第 " << node.line << " 行：未声明的变量 '" << node.name << "'";
         throw SemanticError(oss.str());
     }
+    return 0;
 }

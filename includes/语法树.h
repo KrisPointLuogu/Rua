@@ -32,19 +32,19 @@ class ASTVisitor
 {
 public:
     virtual ~ASTVisitor() = default;
-    virtual void visit(Program &node) = 0;
-    virtual void visit(Function &node) = 0;
-    virtual void visit(Block &node) = 0;
-    virtual void visit(VarDecl &node) = 0;
-    virtual void visit(IfStmt &node) = 0;
-    virtual void visit(WhileStmt &node) = 0;
-    virtual void visit(ReturnStmt &node) = 0;
-    virtual void visit(ExprStmt &node) = 0;
-    virtual void visit(BinaryExpr &node) = 0;
-    virtual void visit(CallExpr &node) = 0;
-    virtual void visit(NumberLiteral &node) = 0;
-    virtual void visit(StringLiteral &node) = 0;
-    virtual void visit(Identifier &node) = 0;
+    virtual int visit(Program &node) = 0;
+    virtual int visit(Function &node) = 0;
+    virtual int visit(Block &node) = 0;
+    virtual int visit(VarDecl &node) = 0;
+    virtual int visit(IfStmt &node) = 0;
+    virtual int visit(WhileStmt &node) = 0;
+    virtual int visit(ReturnStmt &node) = 0;
+    virtual int visit(ExprStmt &node) = 0;
+    virtual int visit(BinaryExpr &node) = 0;
+    virtual int visit(CallExpr &node) = 0;
+    virtual int visit(NumberLiteral &node) = 0;
+    virtual int visit(StringLiteral &node) = 0;
+    virtual int visit(Identifier &node) = 0;
 };
 
 // ----------------------------------------------------------
@@ -75,7 +75,7 @@ class ASTNode
 public:
     virtual ~ASTNode() = default;
     virtual NodeType getType() const = 0;
-    virtual void accept(ASTVisitor &visitor) = 0;
+    virtual int accept(ASTVisitor &visitor) = 0;
     int line = 0;
     int column = 0;
 };
@@ -88,7 +88,7 @@ public:
     std::vector<std::unique_ptr<Function>> functions;
     std::vector<std::unique_ptr<ASTNode>> topLevelStmts;
     NodeType getType() const override { return NodeType::PROGRAM; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class Function : public ASTNode
@@ -98,7 +98,7 @@ public:
     std::vector<std::string> params;
     std::unique_ptr<Block> body;
     NodeType getType() const override { return NodeType::FUNCTION; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class Block : public ASTNode
@@ -106,7 +106,7 @@ class Block : public ASTNode
 public:
     std::vector<std::unique_ptr<ASTNode>> statements;
     NodeType getType() const override { return NodeType::BLOCK; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class VarDecl : public ASTNode
@@ -115,7 +115,7 @@ public:
     std::string name;
     std::unique_ptr<ASTNode> initializer;
     NodeType getType() const override { return NodeType::VAR_DECL; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class IfStmt : public ASTNode
@@ -125,7 +125,7 @@ public:
     std::unique_ptr<Block> thenBranch;
     std::unique_ptr<Block> elseBranch;
     NodeType getType() const override { return NodeType::IF_STMT; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class WhileStmt : public ASTNode
@@ -134,7 +134,7 @@ public:
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<Block> body;
     NodeType getType() const override { return NodeType::WHILE_STMT; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class ReturnStmt : public ASTNode
@@ -142,7 +142,7 @@ class ReturnStmt : public ASTNode
 public:
     std::unique_ptr<ASTNode> value;
     NodeType getType() const override { return NodeType::RETURN_STMT; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class ExprStmt : public ASTNode
@@ -150,7 +150,7 @@ class ExprStmt : public ASTNode
 public:
     std::unique_ptr<ASTNode> expression;
     NodeType getType() const override { return NodeType::EXPR_STMT; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class BinaryExpr : public ASTNode
@@ -160,7 +160,7 @@ public:
     std::unique_ptr<ASTNode> right;
     int op; // TokenType enum value (from 词法分析器.h)
     NodeType getType() const override { return NodeType::BINARY_EXPR; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class CallExpr : public ASTNode
@@ -169,7 +169,7 @@ public:
     std::string callee;
     std::vector<std::unique_ptr<ASTNode>> args;
     NodeType getType() const override { return NodeType::CALL_EXPR; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class NumberLiteral : public ASTNode
@@ -177,7 +177,7 @@ class NumberLiteral : public ASTNode
 public:
     int value;
     NodeType getType() const override { return NodeType::NUMBER_LITERAL; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class StringLiteral : public ASTNode
@@ -185,7 +185,7 @@ class StringLiteral : public ASTNode
 public:
     std::string value;
     NodeType getType() const override { return NodeType::STRING_LITERAL; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
 
 class Identifier : public ASTNode
@@ -193,5 +193,5 @@ class Identifier : public ASTNode
 public:
     std::string name;
     NodeType getType() const override { return NodeType::IDENTIFIER; }
-    void accept(ASTVisitor &visitor) override { visitor.visit(*this); }
+    int accept(ASTVisitor &visitor) override { return visitor.visit(*this); }
 };
