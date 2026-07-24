@@ -1,9 +1,9 @@
 #pragma once
-#include <vector>
-#include <string>
 #include <cstdint>
-#include <stdexcept>
 #include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
 #include "字节码.h"
 
 //
@@ -25,56 +25,49 @@
 //   RET 将返回值写入调用者的 r0，恢复调用者帧
 //
 
-enum class ValueType
-{
-	INTEGER,
-	STRING
+enum class ValueType { INTEGER, STRING };
+
+struct Value {
+    ValueType type;
+    int data;
+
+    Value() : type(ValueType::INTEGER), data(0) {}
+    explicit Value(int v) : type(ValueType::INTEGER), data(v) {}
+    Value(int d, ValueType t) : type(t), data(d) {}
+    void print() const;
 };
 
-struct Value
-{
-	ValueType type;
-	int data;
-
-	Value() : type(ValueType::INTEGER), data(0) {}
-	explicit Value(int v) : type(ValueType::INTEGER), data(v) {}
-	Value(int d, ValueType t) : type(t), data(d) {}
-	void print() const;
+class VMError : public std::runtime_error {
+  public:
+    explicit VMError(const std::string& message);
 };
 
-class VMError : public std::runtime_error
-{
-public:
-	explicit VMError(const std::string &message);
-};
+class VM {
+  private:
+    static constexpr int STACK_CAP = 65536;
+    static constexpr int CALL_CAP = 65536;
+    static constexpr int FRAME_CAP = 65536;
 
-class VM
-{
-private:
-	static constexpr int STACK_CAP = 65536;
-	static constexpr int CALL_CAP = 65536;
-	static constexpr int FRAME_CAP = 65536;
+    std::unique_ptr<Value[]> stackData;
+    std::unique_ptr<int[]> callStackData;
+    std::unique_ptr<int[]> frameStackData;
 
-	std::unique_ptr<Value[]> stackData;
-	std::unique_ptr<int[]> callStackData;
-	std::unique_ptr<int[]> frameStackData;
+    int sp;
+    int cp;
+    int fpStack; // frame stack pointer (index into frameStackData)
 
-	int sp;
-	int cp;
-	int fpStack;  // frame stack pointer (index into frameStackData)
+    const BytecodeProgram* program;
+    int ip;
 
-	const BytecodeProgram *program;
-	int ip;
+  public:
+    VM();
+    void run(const BytecodeProgram& prog);
+    int getStackDepth() const { return sp + 1; }
+    int getCallDepth() const { return cp + 1; }
 
-public:
-	VM();
-	void run(const BytecodeProgram &prog);
-	int getStackDepth() const { return sp + 1; }
-	int getCallDepth() const { return cp + 1; }
-
-private:
-	inline Value &reg(int r)
-	{
-		return stackData[fpStack >= 0 ? (frameStackData[fpStack] + r) : r];
-	}
+  private:
+    inline Value& reg(int r)
+    {
+        return stackData[fpStack >= 0 ? (frameStackData[fpStack] + r) : r];
+    }
 };

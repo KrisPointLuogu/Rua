@@ -1,8 +1,8 @@
 #pragma once
-#include <vector>
 #include <memory>
-#include <string>
 #include <stdexcept>
+#include <string>
+#include <vector>
 #include "UTF32支持.h"
 #include "语法树.h"
 
@@ -37,35 +37,33 @@ using 令牌 = 词法分析器类::令牌;
 // ----------------------------------------------------------
 // ParserError —— 语法错误异常
 // ----------------------------------------------------------
-class ParserError : public std::runtime_error
-{
-public:
-    explicit ParserError(const std::string &message);
+class ParserError : public std::runtime_error {
+  public:
+    explicit ParserError(const std::string& message);
 };
 
 // ----------------------------------------------------------
 // Parser —— 递归下降语法分析器
 // ----------------------------------------------------------
-class Parser
-{
-private:
-    const std::vector<令牌> &tokens;
+class Parser {
+  private:
+    const std::vector<令牌>& tokens;
     size_t current;
 
-public:
-    explicit Parser(const std::vector<令牌> &tokens);
+  public:
+    explicit Parser(const std::vector<令牌>& tokens);
     std::unique_ptr<Program> parseProgram();
 
-private:
+  private:
     bool isAtEnd() const;
-    const 令牌 &peek() const;
-    const 令牌 &previous() const;
-    const 令牌 &advance();
+    const 令牌& peek() const;
+    const 令牌& previous() const;
+    const 令牌& advance();
     bool check(int type) const;
     bool match(int type);
-    bool match(const std::vector<int> &types);
-    const 令牌 &consume(int type, const std::string &errorMsg);
-    ParserError error(const 令牌 &tok, const std::string &msg);
+    bool match(const std::vector<int>& types);
+    const 令牌& consume(int type, const std::string& errorMsg);
+    ParserError error(const 令牌& tok, const std::string& msg);
 
     // 递归下降解析
     std::unique_ptr<Function> parseFunction();
@@ -84,8 +82,9 @@ private:
     std::unique_ptr<ASTNode> parseAddition();
     std::unique_ptr<ASTNode> parseMultiplication();
     std::unique_ptr<ASTNode> parsePrimary();
-    std::unique_ptr<CallExpr> parseCall(const std::string &callee, int line, int column);
+    std::unique_ptr<CallExpr> parseCall(const std::string& callee, int line,
+                                        int column);
 
     // UTF-32 → UTF-8 辅助
-    static std::string u32to8(const std::u32string &u32);
+    static std::string u32to8(const std::u32string& u32);
 };

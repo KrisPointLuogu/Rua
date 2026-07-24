@@ -6,13 +6,11 @@
 using std::string;
 using std::u32string;
 
-class 词法分析器类
-{
+class 词法分析器类 {
 
-public:
+  public:
     // 定义token都有什么类型
-    enum 令牌类型
-    {
+    enum 令牌类型 {
         函数关键字 = 1,
         如果关键字 = 2,
         那么关键字 = 3,
@@ -61,8 +59,7 @@ public:
     };
 
     // 一个token包含什么
-    struct 令牌
-    {
+    struct 令牌 {
         令牌类型 类型_;
         std::u32string 内容_;
         int 行位置_;
@@ -70,21 +67,21 @@ public:
         令牌(令牌类型 t, std::u32string v, int l, int c); // 构造函数，简化写法
     };
 
-    词法分析器类(const string &代码);
+    词法分析器类(const string& 代码);
     std::vector<令牌> 分析();
 
-private:
-    std::u32string 代码_; // 输入的源代码，这里转UTF-32，这样之后就不用费劲处理中英符号字节大小差异了！
+  private:
+    std::u32string
+        代码_; // 输入的源代码，这里转UTF-32，这样之后就不用费劲处理中英符号字节大小差异了！
     size_t 位置_;
     int 行位置_;
     int 列位置_;
 };
 
 // 私有工具函数定义
-class 私有工具
-{
+class 私有工具 {
 
-public:
+  public:
     私有工具()
     {
         // 构造函数，初始化
@@ -94,25 +91,18 @@ public:
     inline void 推进(int 长度)
     {
         // 虽然存在把下限搞得大于总字符数的可能性，但是为了性能考虑，就不做检查了，而且实际上把这个位置加到总字符数前面也没什么用
-        if (长度 > 0)
-            读取下限 += 长度;
+        if (长度 > 0) 读取下限 += 长度;
     }
 
     inline bool 读取(long long 位置)
     {
-        if (位置 >= 读取下限)
-            return true;
+        if (位置 >= 读取下限) return true;
         return false;
     }
 
-    inline u32string ab匹配(
-        const u32string &代码_,
-        size_t &位置_,
-        int &行位置_,
-        int &列位置_,
-        const char32_t a边,
-        const char32_t b边,
-        bool &成功)
+    inline u32string ab匹配(const u32string& 代码_, size_t& 位置_, int& 行位置_,
+                            int& 列位置_, const char32_t a边,
+                            const char32_t b边, bool& 成功)
     {
         size_t 位置 = 位置_;
         int 行位置 = 行位置_;
@@ -121,55 +111,44 @@ public:
         u32string 区间内容 = U"";
         成功 = false;
 
-        if (代码_[位置_] == a边)
-        {
+        if (代码_[位置_] == a边) {
             // 找到起点边，开始匹配
 
-            if (位置_ + 1 < 代码_.size())
-            {
+            if (位置_ + 1 < 代码_.size()) {
                 // 防止访问越界，如果条件不满足，那么这个匹配不可能成功
                 位置_++;
                 列位置_++;
-            }
-            else
-            {
+            } else {
                 return U"";
             }
 
             bool 闭合了 = false;
-            while (位置_ < 代码_.size())
-            {
+            while (位置_ < 代码_.size()) {
 
-                if (代码_[位置_] == U'\n')
-                {
+                if (代码_[位置_] == U'\n') {
                     行位置_++;
                     列位置_++;
                     位置_++;
                     continue;
                 } // 识别换行
 
-                if (位置_ > 0 && 代码_[位置_] == b边 && 代码_[位置_ - 1] != U'\\')
-                {
+                if (位置_ > 0 && 代码_[位置_] == b边
+                    && 代码_[位置_ - 1] != U'\\') {
                     // 找到终点边，匹配完成
                     位置_++;
                     列位置_++; // 跨过终点这一个字符
                     闭合了 = true;
                     break;
-                }
-                else if (位置_ > 1 && 代码_[位置_] == b边 && 代码_[位置_ - 1] == U'\\')
-                {
+                } else if (位置_ > 1 && 代码_[位置_] == b边
+                           && 代码_[位置_ - 1] == U'\\') {
                     int cnt = 0;
-                    for (size_t i = 位置_ - 1; i > 0; i--)
-                    {
-                        if (代码_[i] == U'\\')
-                        {
+                    for (size_t i = 位置_ - 1; i > 0; i--) {
+                        if (代码_[i] == U'\\') {
                             cnt++;
-                        }
-                        else
+                        } else
                             break;
                     }
-                    if (cnt % 2 == 0)
-                    {
+                    if (cnt % 2 == 0) {
                         // 偶数个连续反斜杠，代表无转义符
                         // 找到终点边，匹配完成
                         位置_++;
@@ -179,15 +158,12 @@ public:
                     }
                 }
 
-                if (代码_[位置_] == U'\\' && 代码_[位置_ - 1] != U'\\')
-                {
+                if (代码_[位置_] == U'\\' && 代码_[位置_ - 1] != U'\\') {
                     // 满足说明这个反斜杠是转义
                     位置_++;
                     列位置_++;
                     continue;
-                }
-                else
-                {
+                } else {
                     区间内容 += 代码_[位置_];
                 }
 
@@ -196,13 +172,10 @@ public:
                 // 没找到就到下一个位置等待再次检查
             }
 
-            if (闭合了 == true)
-            {
+            if (闭合了 == true) {
                 成功 = true;
                 return 区间内容;
-            }
-            else
-            {
+            } else {
                 位置_ = 位置;
                 行位置_ = 行位置;
                 列位置_ = 列位置;
@@ -215,22 +188,18 @@ public:
     {
         // 判断一个字符能不能作为一个标识的开头，如：变量名、函数名
 
-        return (字符_ >= U'a' && 字符_ <= U'z') ||
-               (字符_ >= U'A' && 字符_ <= U'Z') ||
-               (字符_ >= U'0' && 字符_ <= U'9') ||
-               字符_ == U'_' ||
-               (字符_ >= U'一' && 字符_ <= U'龥');
+        return (字符_ >= U'a' && 字符_ <= U'z')
+               || (字符_ >= U'A' && 字符_ <= U'Z')
+               || (字符_ >= U'0' && 字符_ <= U'9') || 字符_ == U'_'
+               || (字符_ >= U'一' && 字符_ <= U'龥');
     }
 
-    inline u32string 读取可能的标识符或关键词令牌(
-        const u32string &代码_,
-        size_t &位置_,
-        int &列位置_)
+    inline u32string 读取可能的标识符或关键词令牌(const u32string& 代码_,
+                                                  size_t& 位置_, int& 列位置_)
     {
         u32string 标识符或关键词 = U"";
 
-        while (位置_ < 代码_.size())
-        {
+        while (位置_ < 代码_.size()) {
 
             if (!可用于标识符字符(代码_[位置_]))
                 break; // 如果碰到了一个不是能作为一个标识的开头的字符，那么结束
@@ -244,6 +213,6 @@ public:
         return 标识符或关键词;
     }
 
-private:
+  private:
     long long 读取下限;
 };
