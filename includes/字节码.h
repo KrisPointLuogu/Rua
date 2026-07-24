@@ -7,6 +7,9 @@
 #include <vector>
 #include "语义分析.h"
 #include "语法树.h"
+#ifdef OPTIMIZATION
+#include "IR/中间指令.h"
+#endif
 
 //
 // 寄存器式字节码生成 —— 将 AST 编译为三地址码
@@ -94,6 +97,10 @@ class BytecodeGenerator : public ASTVisitor {
   public:
     explicit BytecodeGenerator(const SymbolTable& symbolTable);
     BytecodeProgram generate(Program& ast);
+#ifdef OPTIMIZATION
+    BytecodeProgram generateFromTAC(const TACProgram& tac,
+                                    const std::vector<int>& tacRegCounts);
+#endif
 
     int visit(Program& node) override;
     int visit(Function& node) override;

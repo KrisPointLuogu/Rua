@@ -13,6 +13,9 @@
 #include "输出彩色支持.h"
 #ifdef OPTIMIZATION
 #include "JIT.h"
+#include "中间生成.h"
+#include "Optimizer/优化管理器.h"
+#include "IR/控制流图.h"
 #endif
 
 #ifdef _DEBUG
@@ -53,8 +56,26 @@ void 编译并运行(const string& 源码)
         输出文本("通过", "GG");
 
         输出文本("【阶段四】字节码生成 ...", "青");
+
+#ifdef OPTIMIZATION
+        // TAC-based pipeline: AST -> TAC -> optimize -> bytecode
+        输出文本("  [优化] AST → TAC ...", "WW");
+        TACGenerator tacGen(语义分析器.getSymbolTable());
+        TACProgram tac = tacGen.generate(*程序);
+
+        输出文本("  [优化] 运行优化 pass ...", "WW");
+        PassManager passMgr;
+        passMgr.runAll(tac);
+
+        输出文本("  [优化] TAC → 字节码 ...", "WW");
+        std::vector<int> regCounts;
+        for (auto& f : tac.functions) regCounts.push_back(f.regCount);
+        BytecodeGenerator 生成器(语义分析器.getSymbolTable());
+        BytecodeProgram 字节码 = 生成器.generateFromTAC(tac, regCounts);
+#else
         BytecodeGenerator 生成器(语义分析器.getSymbolTable());
         BytecodeProgram 字节码 = 生成器.generate(*程序);
+#endif
 
 #ifdef _DEBUG
         字节码.print();
