@@ -1,7 +1,8 @@
-#include "Optimizer/优化管理器.h"
 #include <iostream>
+#include "Optimizer/优化管理器.h"
 
-bool LoopUnrolling::run(TACProgram& program, int funcIdx) {
+bool LoopUnrolling::run(TACProgram& program, int funcIdx)
+{
     if (funcIdx < 0 || funcIdx >= static_cast<int>(program.functions.size()))
         return false;
 
@@ -10,8 +11,8 @@ bool LoopUnrolling::run(TACProgram& program, int funcIdx) {
 
     // Collect all back-edges first (don't modify while scanning)
     struct LoopInfo {
-        int jmpPos;      // position of the JMP instruction
-        int bodyStart;   // target of JMP (loop header / cond start)
+        int jmpPos;    // position of the JMP instruction
+        int bodyStart; // target of JMP (loop header / cond start)
     };
     std::vector<LoopInfo> loops;
     for (int i = 0; i < static_cast<int>(func.instructions.size()); i++) {
@@ -19,12 +20,11 @@ bool LoopUnrolling::run(TACProgram& program, int funcIdx) {
         if (inst->getOpcode() != TACOpcode::JMP) continue;
         auto* jmp = static_cast<TACJmp*>(inst);
         int target = jmp->targetBlock;
-        if (target >= 0 && target < i) {
-            loops.push_back({i, target});
-        }
+        if (target >= 0 && target < i) { loops.push_back({ i, target }); }
     }
 
-    // Process loops from back to front so earlier insertions don't affect later positions
+    // Process loops from back to front so earlier insertions don't affect later
+    // positions
     for (int li = static_cast<int>(loops.size()) - 1; li >= 0; li--) {
         auto& loop = loops[li];
         int loopBodyStart = loop.bodyStart;

@@ -14,6 +14,6 @@ def run(cmd, cwd=None):
 if __name__ == "__main__":
     run(["cmake", "-S", str(ROOT), "-B", str(BUILD_DIR),
          "-DCMAKE_BUILD_TYPE=Debug",
-         "-DCMAKE_CXX_FLAGS=-Ofast -Wall -march=native -flto -DOPTIMIZATION -D_DEBUG"])
+         "-DENABLE_OPTIMIZATION=ON"])
     run(["cmake", "--build", str(BUILD_DIR), "-j", str(os.cpu_count() or 4)])
     print("[OK] 优化版编译完成，输出在 build/")

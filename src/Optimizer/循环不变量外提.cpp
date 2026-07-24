@@ -1,7 +1,8 @@
-#include "Optimizer/优化管理器.h"
 #include <iostream>
+#include "Optimizer/优化管理器.h"
 
-bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx) {
+bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx)
+{
     if (funcIdx < 0 || funcIdx >= static_cast<int>(program.functions.size()))
         return false;
 
@@ -39,12 +40,12 @@ bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx) {
                     auto* m = static_cast<TACMov*>(inst);
                     if (m->rd.kind == TACValueKind::TEMP)
                         loopWriteCount[m->rd.index]++;
-                } else if (op == TACOpcode::ADD || op == TACOpcode::SUB ||
-                           op == TACOpcode::MUL || op == TACOpcode::DIV ||
-                           op == TACOpcode::MOD || op == TACOpcode::EQ ||
-                           op == TACOpcode::NE || op == TACOpcode::LT ||
-                           op == TACOpcode::GT || op == TACOpcode::LE ||
-                           op == TACOpcode::GE) {
+                } else if (op == TACOpcode::ADD || op == TACOpcode::SUB
+                           || op == TACOpcode::MUL || op == TACOpcode::DIV
+                           || op == TACOpcode::MOD || op == TACOpcode::EQ
+                           || op == TACOpcode::NE || op == TACOpcode::LT
+                           || op == TACOpcode::GT || op == TACOpcode::LE
+                           || op == TACOpcode::GE) {
                     auto* b = static_cast<TACBinary*>(inst);
                     if (b->rd.kind == TACValueKind::TEMP)
                         loopWriteCount[b->rd.index]++;
@@ -54,7 +55,8 @@ bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx) {
                         loopWriteCount[c->rd.index]++;
                 }
             }
-            // loopDefs[i] is true if register i is written by ANY instruction in the loop
+            // loopDefs[i] is true if register i is written by ANY instruction
+            // in the loop
             std::vector<bool> loopDefs(256, false);
             for (int i = 0; i < 256; i++) loopDefs[i] = (loopWriteCount[i] > 0);
 
@@ -67,67 +69,72 @@ bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx) {
                 if (op == TACOpcode::MOVI) {
                     auto* m = static_cast<TACMovI*>(inst);
                     // Only hoist MOVI if its target register is not overwritten
-                    // by other instructions in the loop (write count must be exactly 1,
-                    // meaning only this MOVI writes to it)
-                    if (m->rd.kind == TACValueKind::TEMP && loopWriteCount[m->rd.index] == 1)
+                    // by other instructions in the loop (write count must be
+                    // exactly 1, meaning only this MOVI writes to it)
+                    if (m->rd.kind == TACValueKind::TEMP
+                        && loopWriteCount[m->rd.index] == 1)
                         isInvariant = true;
-                } else if (op == TACOpcode::ADD || op == TACOpcode::SUB ||
-                           op == TACOpcode::MUL || op == TACOpcode::DIV ||
-                           op == TACOpcode::MOD || op == TACOpcode::EQ ||
-                           op == TACOpcode::NE || op == TACOpcode::LT ||
-                           op == TACOpcode::GT || op == TACOpcode::LE ||
-                           op == TACOpcode::GE) {
+                } else if (op == TACOpcode::ADD || op == TACOpcode::SUB
+                           || op == TACOpcode::MUL || op == TACOpcode::DIV
+                           || op == TACOpcode::MOD || op == TACOpcode::EQ
+                           || op == TACOpcode::NE || op == TACOpcode::LT
+                           || op == TACOpcode::GT || op == TACOpcode::LE
+                           || op == TACOpcode::GE) {
                     auto* b = static_cast<TACBinary*>(inst);
                     bool operandsInvariant = true;
-                    if (b->rs1.kind == TACValueKind::TEMP && loopDefs[b->rs1.index])
+                    if (b->rs1.kind == TACValueKind::TEMP
+                        && loopDefs[b->rs1.index])
                         operandsInvariant = false;
-                    if (b->rs2.kind == TACValueKind::TEMP && loopDefs[b->rs2.index])
+                    if (b->rs2.kind == TACValueKind::TEMP
+                        && loopDefs[b->rs2.index])
                         operandsInvariant = false;
                     isInvariant = operandsInvariant;
                 }
 
-                if (isInvariant)
-                    invariantInsts.push_back(i);
+                if (isInvariant) invariantInsts.push_back(i);
             }
 
             if (invariantInsts.empty()) continue;
 
             int oldSize = static_cast<int>(func.instructions.size());
 
-            // Collect the invariant instructions (from back to front to preserve indices)
+            // Collect the invariant instructions (from back to front to
+            // preserve indices)
             std::vector<std::unique_ptr<TACInst>> hoisted;
-            for (int i = static_cast<int>(invariantInsts.size()) - 1; i >= 0; i--) {
+            for (int i = static_cast<int>(invariantInsts.size()) - 1; i >= 0;
+                 i--) {
                 int instIdx = invariantInsts[i];
                 hoisted.push_back(std::move(func.instructions[instIdx]));
                 func.instructions.erase(func.instructions.begin() + instIdx);
             }
 
-            // Reverse hoisted so they're in original order, then insert at lStart
+            // Reverse hoisted so they're in original order, then insert at
+            // lStart
             std::reverse(hoisted.begin(), hoisted.end());
             int insertCount = static_cast<int>(hoisted.size());
             func.instructions.insert(func.instructions.begin() + lStart,
                                      std::make_move_iterator(hoisted.begin()),
                                      std::make_move_iterator(hoisted.end()));
 
-            // Build remapping: invariant instructions moved from their original positions to lStart..lStart+insertCount-1
-            // Everything else shifted accordingly
+            // Build remapping: invariant instructions moved from their original
+            // positions to lStart..lStart+insertCount-1 Everything else shifted
+            // accordingly
             std::vector<int> oldToNew(oldSize);
             // Start with identity
             for (int i = 0; i < oldSize; i++) oldToNew[i] = i;
 
             // Mark removed positions as -1
-            for (int idx : invariantInsts)
-                oldToNew[idx] = -1;
+            for (int idx : invariantInsts) oldToNew[idx] = -1;
 
             // Compute cumulative shift for each position
             // After removing invariantInsts and inserting at lStart:
             // - Positions before lStart: unchanged (if not removed)
-            // - Positions at lStart..lStart+insertCount-1: the hoisted instructions
+            // - Positions at lStart..lStart+insertCount-1: the hoisted
+            // instructions
             // - Everything else shifts
-            // Build a fresh mapping by tracking cumulative deletions and insertions
+            // Build a fresh mapping by tracking cumulative deletions and
+            // insertions
             std::vector<int> fresh(oldSize);
-            int removedBefore = 0;
-            int insertedBefore = 0;
             // Create a sorted list of removed positions
             std::vector<int> removedSorted = invariantInsts;
             std::sort(removedSorted.begin(), removedSorted.end());
@@ -136,7 +143,8 @@ bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx) {
             int newPos = 0;
             for (int oldIdx = 0; oldIdx < oldSize; oldIdx++) {
                 // Check if this position was removed
-                if (remIdx < static_cast<int>(removedSorted.size()) && removedSorted[remIdx] == oldIdx) {
+                if (remIdx < static_cast<int>(removedSorted.size())
+                    && removedSorted[remIdx] == oldIdx) {
                     fresh[oldIdx] = -1;
                     remIdx++;
                 } else {
@@ -146,7 +154,8 @@ bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx) {
             }
 
             // Now account for the insertions at lStart
-            // The hoisted instructions are inserted at lStart, shifting everything at/after lStart right by insertCount
+            // The hoisted instructions are inserted at lStart, shifting
+            // everything at/after lStart right by insertCount
             for (int i = 0; i < oldSize; i++) {
                 if (fresh[i] >= 0 && fresh[i] >= lStart) {
                     fresh[i] += insertCount;

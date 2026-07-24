@@ -1,8 +1,9 @@
-#include "Optimizer/优化管理器.h"
 #include <algorithm>
 #include <iostream>
+#include "Optimizer/优化管理器.h"
 
-bool ConstantPropagation::run(TACProgram& program, int funcIdx) {
+bool ConstantPropagation::run(TACProgram& program, int funcIdx)
+{
     if (funcIdx < 0 || funcIdx >= static_cast<int>(program.functions.size()))
         return false;
 
@@ -21,7 +22,8 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx) {
         if (op == TACOpcode::MOVI) {
             auto* m = static_cast<TACMovI*>(inst.get());
             if (m->rd.kind == TACValueKind::TEMP) {
-                if (!isConst[m->rd.index] || constVals[m->rd.index] != m->constVal) {
+                if (!isConst[m->rd.index]
+                    || constVals[m->rd.index] != m->constVal) {
                     constVals[m->rd.index] = m->constVal;
                     isConst[m->rd.index] = true;
                     changed = true;
@@ -36,18 +38,21 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx) {
                     isConst[m->rd.index] = true;
                 }
                 changed = true;
-            } else if (m->rs.kind == TACValueKind::TEMP && isConst[m->rs.index]) {
+            } else if (m->rs.kind == TACValueKind::TEMP
+                       && isConst[m->rs.index]) {
                 if (m->rd.kind == TACValueKind::TEMP) {
                     constVals[m->rd.index] = constVals[m->rs.index];
                     isConst[m->rd.index] = true;
                 }
             }
-        } else if (op == TACOpcode::ADD || op == TACOpcode::SUB ||
-                   op == TACOpcode::MUL || op == TACOpcode::DIV ||
-                   op == TACOpcode::MOD) {
+        } else if (op == TACOpcode::ADD || op == TACOpcode::SUB
+                   || op == TACOpcode::MUL || op == TACOpcode::DIV
+                   || op == TACOpcode::MOD) {
             auto* b = static_cast<TACBinary*>(inst.get());
-            bool lhsConst = (b->rs1.kind == TACValueKind::TEMP && isConst[b->rs1.index]);
-            bool rhsConst = (b->rs2.kind == TACValueKind::TEMP && isConst[b->rs2.index]);
+            bool lhsConst
+                = (b->rs1.kind == TACValueKind::TEMP && isConst[b->rs1.index]);
+            bool rhsConst
+                = (b->rs2.kind == TACValueKind::TEMP && isConst[b->rs2.index]);
             if (lhsConst && rhsConst) {
                 int l = constVals[b->rs1.index];
                 int r = constVals[b->rs2.index];
@@ -67,12 +72,14 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx) {
                 }
                 changed = true;
             }
-        } else if (op == TACOpcode::EQ || op == TACOpcode::NE ||
-                   op == TACOpcode::LT || op == TACOpcode::GT ||
-                   op == TACOpcode::LE || op == TACOpcode::GE) {
+        } else if (op == TACOpcode::EQ || op == TACOpcode::NE
+                   || op == TACOpcode::LT || op == TACOpcode::GT
+                   || op == TACOpcode::LE || op == TACOpcode::GE) {
             auto* b = static_cast<TACBinary*>(inst.get());
-            bool lhsConst = (b->rs1.kind == TACValueKind::TEMP && isConst[b->rs1.index]);
-            bool rhsConst = (b->rs2.kind == TACValueKind::TEMP && isConst[b->rs2.index]);
+            bool lhsConst
+                = (b->rs1.kind == TACValueKind::TEMP && isConst[b->rs1.index]);
+            bool rhsConst
+                = (b->rs2.kind == TACValueKind::TEMP && isConst[b->rs2.index]);
             if (lhsConst && rhsConst) {
                 int l = constVals[b->rs1.index];
                 int r = constVals[b->rs2.index];
@@ -80,8 +87,8 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx) {
                 switch (op) {
                 case TACOpcode::EQ: result = (l == r) ? 1 : 0; break;
                 case TACOpcode::NE: result = (l != r) ? 1 : 0; break;
-                case TACOpcode::LT: result = (l < r)  ? 1 : 0; break;
-                case TACOpcode::GT: result = (l > r)  ? 1 : 0; break;
+                case TACOpcode::LT: result = (l < r) ? 1 : 0; break;
+                case TACOpcode::GT: result = (l > r) ? 1 : 0; break;
                 case TACOpcode::LE: result = (l <= r) ? 1 : 0; break;
                 case TACOpcode::GE: result = (l >= r) ? 1 : 0; break;
                 default: break;

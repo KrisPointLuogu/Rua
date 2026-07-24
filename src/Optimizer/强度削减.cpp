@@ -1,7 +1,8 @@
-#include "Optimizer/优化管理器.h"
 #include <iostream>
+#include "Optimizer/优化管理器.h"
 
-bool StrengthReduction::run(TACProgram& program, int funcIdx) {
+bool StrengthReduction::run(TACProgram& program, int funcIdx)
+{
     if (funcIdx < 0 || funcIdx >= static_cast<int>(program.functions.size()))
         return false;
 
@@ -25,8 +26,9 @@ bool StrengthReduction::run(TACProgram& program, int funcIdx) {
                     if (val > 0 && (val & (val - 1)) == 0) {
                         // val is a power of 2, replace mul with shift-left
                         // shift-left by log2(val) is equivalent to mul by val
-                        // but we don't have a shift instruction, so keep the mul
-                        // and mark it as strength-reduced for future optimization
+                        // but we don't have a shift instruction, so keep the
+                        // mul and mark it as strength-reduced for future
+                        // optimization
                     }
                 }
             }

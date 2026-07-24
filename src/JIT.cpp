@@ -88,9 +88,7 @@ void JITCompiler::emitREX(bool w, bool r, bool x, bool b)
 }
 
 void JITCompiler::emitModRM(uint8_t mod, uint8_t oreg, uint8_t ereg)
-{
-    emit8((mod << 6) | ((oreg & 7) << 3) | (ereg & 7));
-}
+{ emit8((mod << 6) | ((oreg & 7) << 3) | (ereg & 7)); }
 
 void JITCompiler::emitModRMSIB(uint8_t mod, uint8_t oreg, uint8_t base,
                                uint8_t index, uint8_t scale)
@@ -355,9 +353,7 @@ void JITCompiler::emitJumpToLabel(const char* cc, size_t label)
 }
 
 void JITCompiler::emitJumpToLabel(size_t label)
-{
-    emitJumpToLabel(nullptr, label);
-}
+{ emitJumpToLabel(nullptr, label); }
 
 // ==================== 函数编译 ====================
 

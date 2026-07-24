@@ -15,6 +15,6 @@ if __name__ == "__main__":
     run(["cmake", "-S", str(ROOT), "-B", str(BUILD_DIR),
          "-G", "Visual Studio 17 2022", "-A", "x64",
          "-DCMAKE_BUILD_TYPE=Debug",
-         "-DCMAKE_CXX_FLAGS=/O2 /DOPTIMIZATION /D_DEBUG"])
+         "-DENABLE_OPTIMIZATION=ON"])
     run(["cmake", "--build", str(BUILD_DIR), "--config", "Debug", "-j", str(os.cpu_count() or 4)])
     print("[OK] Windows 优化版编译完成，输出在 build_windows/")

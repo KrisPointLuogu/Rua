@@ -1,9 +1,10 @@
-#include "Optimizer/优化管理器.h"
 #include <algorithm>
 #include <iostream>
 #include <set>
+#include "Optimizer/优化管理器.h"
 
-bool DeadCodeElimination::run(TACProgram& program, int funcIdx) {
+bool DeadCodeElimination::run(TACProgram& program, int funcIdx)
+{
     if (funcIdx < 0 || funcIdx >= static_cast<int>(program.functions.size()))
         return false;
 
@@ -17,25 +18,27 @@ bool DeadCodeElimination::run(TACProgram& program, int funcIdx) {
         auto op = inst->getOpcode();
         if (op == TACOpcode::MOV) {
             auto* m = static_cast<TACMov*>(inst.get());
-            if (m->rs.kind == TACValueKind::TEMP)
-                usedTemps.insert(m->rs.index);
+            if (m->rs.kind == TACValueKind::TEMP) usedTemps.insert(m->rs.index);
         } else if (op == TACOpcode::MOVI) {
             auto* m = static_cast<TACMovI*>(inst.get());
             // MOVI only has a dest, no source temp
         } else if (op == TACOpcode::MOVS) {
             // MOVS only has a dest
-        } else if (op == TACOpcode::ADD || op == TACOpcode::SUB ||
-                   op == TACOpcode::MUL || op == TACOpcode::DIV ||
-                   op == TACOpcode::MOD || op == TACOpcode::EQ ||
-                   op == TACOpcode::NE || op == TACOpcode::LT ||
-                   op == TACOpcode::GT || op == TACOpcode::LE ||
-                   op == TACOpcode::GE) {
+        } else if (op == TACOpcode::ADD || op == TACOpcode::SUB
+                   || op == TACOpcode::MUL || op == TACOpcode::DIV
+                   || op == TACOpcode::MOD || op == TACOpcode::EQ
+                   || op == TACOpcode::NE || op == TACOpcode::LT
+                   || op == TACOpcode::GT || op == TACOpcode::LE
+                   || op == TACOpcode::GE) {
             auto* b = static_cast<TACBinary*>(inst.get());
-            if (b->rs1.kind == TACValueKind::TEMP) usedTemps.insert(b->rs1.index);
-            if (b->rs2.kind == TACValueKind::TEMP) usedTemps.insert(b->rs2.index);
+            if (b->rs1.kind == TACValueKind::TEMP)
+                usedTemps.insert(b->rs1.index);
+            if (b->rs2.kind == TACValueKind::TEMP)
+                usedTemps.insert(b->rs2.index);
         } else if (op == TACOpcode::JIF) {
             auto* j = static_cast<TACJif*>(inst.get());
-            if (j->cond.kind == TACValueKind::TEMP) usedTemps.insert(j->cond.index);
+            if (j->cond.kind == TACValueKind::TEMP)
+                usedTemps.insert(j->cond.index);
         } else if (op == TACOpcode::PUSH) {
             auto* p = static_cast<TACParm*>(inst.get());
             if (p->rs.kind == TACValueKind::TEMP) usedTemps.insert(p->rs.index);
@@ -56,29 +59,35 @@ bool DeadCodeElimination::run(TACProgram& program, int funcIdx) {
         auto op = inst->getOpcode();
         if (op == TACOpcode::MOV) {
             auto* m = static_cast<TACMov*>(inst.get());
-            if (m->rd.kind == TACValueKind::TEMP && usedTemps.find(m->rd.index) == usedTemps.end()) {
+            if (m->rd.kind == TACValueKind::TEMP
+                && usedTemps.find(m->rd.index) == usedTemps.end()) {
                 // dead assignment, replace with NOP
-                inst = std::make_unique<TACMov>(TACValue(TACValueKind::TEMP, 0),
-                                                TACValue(TACValueKind::TEMP, 0));
+                inst
+                    = std::make_unique<TACMov>(TACValue(TACValueKind::TEMP, 0),
+                                               TACValue(TACValueKind::TEMP, 0));
                 changed = true;
             }
-        } else if (op == TACOpcode::ADD || op == TACOpcode::SUB ||
-                   op == TACOpcode::MUL || op == TACOpcode::DIV ||
-                   op == TACOpcode::MOD || op == TACOpcode::EQ ||
-                   op == TACOpcode::NE || op == TACOpcode::LT ||
-                   op == TACOpcode::GT || op == TACOpcode::LE ||
-                   op == TACOpcode::GE) {
+        } else if (op == TACOpcode::ADD || op == TACOpcode::SUB
+                   || op == TACOpcode::MUL || op == TACOpcode::DIV
+                   || op == TACOpcode::MOD || op == TACOpcode::EQ
+                   || op == TACOpcode::NE || op == TACOpcode::LT
+                   || op == TACOpcode::GT || op == TACOpcode::LE
+                   || op == TACOpcode::GE) {
             auto* b = static_cast<TACBinary*>(inst.get());
-            if (b->rd.kind == TACValueKind::TEMP && usedTemps.find(b->rd.index) == usedTemps.end()) {
-                inst = std::make_unique<TACMov>(TACValue(TACValueKind::TEMP, 0),
-                                                TACValue(TACValueKind::TEMP, 0));
+            if (b->rd.kind == TACValueKind::TEMP
+                && usedTemps.find(b->rd.index) == usedTemps.end()) {
+                inst
+                    = std::make_unique<TACMov>(TACValue(TACValueKind::TEMP, 0),
+                                               TACValue(TACValueKind::TEMP, 0));
                 changed = true;
             }
         } else if (op == TACOpcode::MOVI) {
             auto* m = static_cast<TACMovI*>(inst.get());
-            if (m->rd.kind == TACValueKind::TEMP && usedTemps.find(m->rd.index) == usedTemps.end()) {
-                inst = std::make_unique<TACMov>(TACValue(TACValueKind::TEMP, 0),
-                                                TACValue(TACValueKind::TEMP, 0));
+            if (m->rd.kind == TACValueKind::TEMP
+                && usedTemps.find(m->rd.index) == usedTemps.end()) {
+                inst
+                    = std::make_unique<TACMov>(TACValue(TACValueKind::TEMP, 0),
+                                               TACValue(TACValueKind::TEMP, 0));
                 changed = true;
             }
         }

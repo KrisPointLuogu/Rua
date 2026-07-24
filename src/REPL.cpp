@@ -12,10 +12,10 @@
 #include "语法分析器.h"
 #include "输出彩色支持.h"
 #ifdef OPTIMIZATION
-#include "JIT.h"
-#include "中间生成.h"
-#include "Optimizer/优化管理器.h"
 #include "IR/控制流图.h"
+#include "JIT.h"
+#include "Optimizer/优化管理器.h"
+#include "中间生成.h"
 #endif
 
 #ifdef _DEBUG
