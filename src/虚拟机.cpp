@@ -67,6 +67,10 @@ void VM::run(const BytecodeProgram &prog)
 #endif
 	}
 
+#ifdef _DEBUG
+	auto 开始 = std::chrono::high_resolution_clock::now();
+#endif
+
 	Value *__restrict s = stackData.get();
 	int *__restrict cs = callStackData.get();
 	int *__restrict fs = frameStackData.get();
@@ -74,10 +78,6 @@ void VM::run(const BytecodeProgram &prog)
 	int _sp = -1, _cp = -1, _fs = -1, _fp = 0;
 	Value *base = s;
 	vector<string> strPool;
-
-#ifdef _DEBUG
-	auto 开始 = std::chrono::high_resolution_clock::now();
-#endif
 
 	static void *dispatch[] = {
 		&&op_halt, &&op_movi, &&op_movs, &&op_mov, &&op_add, &&op_sub,
@@ -269,6 +269,14 @@ op_call:
 		sp = _sp;
 		cp = _cp;
 		fpStack = _fs;
+
+#ifdef _DEBUG
+	{
+		auto 结束 = std::chrono::high_resolution_clock::now();
+		auto 耗时 = std::chrono::duration_cast<std::chrono::microseconds>(结束 - 开始).count();
+		std::cout << "\n[DEBUG] 字节码执行耗时: " << 耗时 << " 微秒 (" << (耗时 / 1000.0) << " 毫秒)\n";
+	}
+#endif
 }
 
 #undef I32
