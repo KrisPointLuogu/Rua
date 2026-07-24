@@ -56,6 +56,9 @@ struct FunctionInfo
 	int localCount;
 	int regCount;
 	int codeOffset;
+#ifdef OPTIMIZATION
+	void *jitFunc = nullptr; // JIT 编译后的函数指针
+#endif
 };
 
 class BytecodeProgram

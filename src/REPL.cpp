@@ -11,6 +11,9 @@
 #include "语义分析.h"
 #include "字节码.h"
 #include "虚拟机.h"
+#ifdef OPTIMIZATION
+#include "JIT.h"
+#endif
 
 #ifdef _DEBUG
 #include "调试输出支持.h"
@@ -57,6 +60,15 @@ void 编译并运行(const string &源码)
 #endif
 
         输出文本("完成，共 " + std::to_string(字节码.code.size()) + " 字节的字节码", "GG");
+
+#ifdef OPTIMIZATION
+        输出文本("【阶段四·五】JIT 编译 ...", "青");
+        {
+            JITCompiler jit;
+            jit.compile(字节码);
+        }
+        输出文本("JIT 完成", "GG");
+#endif
 
         输出文本("【阶段五】虚拟机执行 ...", "青");
         VM 虚拟机;

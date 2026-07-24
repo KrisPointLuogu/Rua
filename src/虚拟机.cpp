@@ -15,6 +15,9 @@
 #ifdef _DEBUG
 #include <chrono>
 #endif
+#ifdef OPTIMIZATION
+typedef int64_t (*JITFunc)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+#endif
 
 using std::string;
 using std::vector;
@@ -52,10 +55,16 @@ void VM::run(const BytecodeProgram &prog)
 	// 函数信息 SoA 缓存
 	int fnCount = (int)functions.size();
 	int fnPC[256], fnRC[256], fnCO[256];
+#ifdef OPTIMIZATION
+	void *fnJIT[256];
+#endif
 	for (int i = 0; i < fnCount; i++) {
 		fnPC[i] = functions[i].paramCount;
 		fnRC[i] = functions[i].regCount;
 		fnCO[i] = functions[i].codeOffset;
+#ifdef OPTIMIZATION
+		fnJIT[i] = functions[i].jitFunc;
+#endif
 	}
 
 	Value *__restrict s = stackData.get();
@@ -202,6 +211,24 @@ void VM::run(const BytecodeProgram &prog)
 op_call:
 {
 	int funcIdx = I32(ip + 4);
+
+#ifdef OPTIMIZATION
+	// JIT 快速路径
+	if (fnJIT[funcIdx])
+	{
+		JITFunc jitFn = (JITFunc)fnJIT[funcIdx];
+		int pCnt = fnPC[funcIdx];
+		int64_t args[6] = {0,0,0,0,0,0};
+		for (int i = 0; i < pCnt && i < 6; i++)
+			args[i] = s[_sp - pCnt + 1 + i].data;
+		_sp -= pCnt + 1; // 弹出参数 + r0 占位
+		int64_t result = jitFn(args[0], args[1], args[2], args[3], args[4], args[5]);
+		s[_fp] = Value((int)result);
+		ip += 8;
+		NEXT();
+	}
+#endif
+
 	int pCnt = fnPC[funcIdx], rCnt = fnRC[funcIdx];
 	int newFP = _sp - pCnt;
 	fs[++_fs] = newFP;

@@ -11,7 +11,7 @@ if(MSVC)
     add_compile_options(/utf-8 /W3)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -Wall -march=native -flto")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -Wall -march=native -flto -DOPTIMIZATION")
 
 add_executable(Rua
     src/main.cpp
@@ -22,6 +22,7 @@ add_executable(Rua
     src/语义分析.cpp
     src/字节码生成.cpp
     src/虚拟机.cpp
+    src/JIT.cpp
 )
 
 target_include_directories(Rua PRIVATE includes)
