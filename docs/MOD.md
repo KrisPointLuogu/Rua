@@ -4,7 +4,15 @@
 
 ```
 源码 → 词法分析器 → Token → 语法分析器 → AST → 语义分析 → 字节码生成 → 虚拟机执行
+                                                          ↓
+                                                   JIT 编译 (x86-64)
+                                                          ↓
+                                                   机器码直接执行
 ```
+
+**执行策略：**
+- 优化模式 (`-DOPTIMIZATION`)：纯整数/算术函数走 JIT，含字符串/输出的函数退回解释器
+- 非优化模式：全部走解释器
 
 ---
 
@@ -105,10 +113,10 @@
 | `交互与执行()` | REPL 主循环：累积多行输入，遇到 "运行" 时编译执行 |
 | `基本界面()` | 显示欢迎界面和平台信息 |
 | `输入()` / `退出()` | 读一行 / 退出程序 |
-| `获取系统用户名()` | 跨平台获取当前用户名 |
+| `获取系统用户名()` | 跨平台获取当前用户名（通过 arch::getUser） |
 | `生成随机数(a, b)` | 生成随机整数 |
 
-**包含：** `词法分析器.h` `语法分析器.h` `语义分析.h` `字节码.h` `虚拟机.h`
+**包含：** `词法分析器.h` `语法分析器.h` `语义分析.h` `字节码.h` `虚拟机.h` `Console.h`
 
 ---
 
@@ -119,6 +127,77 @@
 | `全局内容` | `全局` | 全局状态：系统信息、用户名、ANSI 支持标志、喵语录 |
 
 **入口逻辑：** `-h` → 显示帮助；有参数 → 运行文件；无参数 → 进入 REPL。
+
+---
+
+### `arch/` — 平台抽象层
+
+所有平台相关代码集中在此目录，其余代码完全平台无关。
+
+| 文件 | 概括 |
+|------|------|
+| `JITPlatform.h` | JIT 可执行内存管理接口（`#ifdef` 分支） |
+| `JITPlatform_linux.h/.cpp` | Linux: `mmap`/`mprotect`/`sysconf` |
+| `JITPlatform_windows.h/.cpp` | Windows: `VirtualAlloc`/`VirtualProtect`/`GetSystemInfo` |
+| `Console.h` | 终端控制接口（`#ifdef` 分支） |
+| `Console_linux.h/.cpp` | Linux: 终端标题、用户名、locale |
+| `Console_windows.h/.cpp` | Windows: `SetConsoleTitle`/`GetUserNameA`/UTF-8 |
+
+**设计原则：** `#ifdef` 仅存在于 arch/*.h 文件中，其余代码不使用平台宏。
+
+---
+
+### `src/JIT.cpp` — JIT 编译器
+
+| 函数/类 | 概括 |
+|---------|------|
+| `JITCompiler::compile(prog)` | 编译整个程序，填充 BytecodeProgram 中的 jitFunc |
+| `JITCompiler::compileFunction(...)` | 编译单个函数，返回 JIT 函数指针 |
+| `JITCompiler::canJIT(func, prog)` | 判断函数是否适合 JIT（无 MOVS/PRINT） |
+
+**寄存器映射 (x86-64)：**
+```
+v0 = RAX   (返回值)
+v1 = RBX   (参数1, callee-saved)
+v2 = R12   (callee-saved)
+v3 = R13   (callee-saved)
+v4 = R14   (callee-saved)
+v5 = R15   (callee-saved)
+v6 = RSI   (caller-saved)
+v7 = RDI   (caller-saved)
+v8 = RDX   (caller-saved)
+v9 = RCX   (caller-saved)
+v10 = R8   (caller-saved)
+v11 = R9   (caller-saved)
+v12 = R10  (caller-saved, 临时)
+v13 = R11  (caller-saved, 临时)
+v14+ = 栈溢出 (spill)
+```
+
+**函数调用约定 (SysV ABI)：**
+- 参数通过 RDI, RSI, RDX, RCX, R8, R9 传递
+- CALL 前保存 caller-saved 寄存器 (v6-v13)
+- CALL 后恢复 caller-saved 寄存器
+- 返回值在 RAX
+
+**调试输出：**
+- 编译时添加 `-D_DEBUG` 启用 JIT 调试信息
+- 输出寄存器分配、CALL 处理、函数大小等信息
+
+**包含：** `JIT.h` `JITPlatform.h`
+
+---
+
+### `includes/JIT.h` — JIT 编译器接口
+
+| 类/函数 | 概括 |
+|---------|------|
+| `JITCompiler` | JIT 编译器类，管理代码缓冲区和编译流程 |
+| `JITFunc` | JIT 函数指针类型：`int64_t (*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)` |
+| `vregToPhys(vreg)` | 虚拟寄存器 → x86-64 物理寄存器映射 |
+| `isCalleeSaved(preg)` | 判断物理寄存器是否为 callee-saved |
+
+**条件编译：** 仅在 `#ifdef OPTIMIZATION` 下启用。
 
 ---
 
@@ -133,7 +212,7 @@
 | `输出彩色支持.h` | `输出文本()` | ANSI 彩色终端输出 |
 | `调试输出支持.h` | `调试输出()` | DEBUG 模式下的调试输出 |
 | `UTF32支持.h/.cpp` | `UTF8转UTF32()` `UTF32转UTF8()` | UTF-8 ↔ UTF-32 编解码 |
-| `main.h` | `初始化窗口()` | 控制台窗口初始化：标题、ANSI 支持、UTF-8 区域设置 |
+| `main.h` | `初始化窗口()` | 控制台窗口初始化（通过 arch:: 调用） |
 
 ---
 
@@ -184,9 +263,10 @@ main.cpp
        ├── 字节码.h                                              │
        │    ├── 语法树.h                                         │
        │    └── 语义分析.h                                       │
-       └── 虚拟机.h                                              │
-            └── 字节码.h                                         │
-                                                                 │
+       ├── 虚拟机.h                                              │
+       │    └── 字节码.h                                         │
+       └── Console.h ──→ arch/Console_linux.h 或 _windows.h     │
+                                                                    │
 信息上报.h ───→ 异常上报.h ───→ 输出彩色支持.h ───→ 全局内容.h ←──┘
 ```
 
@@ -194,3 +274,4 @@ main.cpp
 
 1. **Visitor 模式**：语义分析和字节码生成都实现 `ASTVisitor`，分离关注点
 2. **寄存器式 VM**：固定 8 字节指令，三地址码（rd, rs1, rs2）+ extra 字段
+3. **平台抽象**：arch/ 目录封装所有平台相关代码，其余代码完全跨平台

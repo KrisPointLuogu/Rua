@@ -102,28 +102,54 @@ primary       = NUMBER | STRING
 ```
 Rua/
 ├── CMakeLists.txt
-├── Rua/
+├── src/
 │   ├── main.cpp              # 入口：文件模式 / REPL 模式
-│   ├── main.h                # 窗口初始化
 │   ├── REPL.cpp              # REPL 交互 + 编译流水线
-│   ├── REPL.h
-│   │
-│   ├── 词法分析器.cpp/.h      # 词法分析器 (Lexer)
+│   ├── 词法分析器.cpp         # 词法分析器 (Lexer)
+│   ├── 语法分析器.cpp         # 递归下降语法分析器 (Parser)
+│   ├── 语义分析.cpp           # 语义分析 + 符号表 (Semantic)
+│   ├── 字节码生成.cpp         # 字节码生成 (BytecodeGenerator)
+│   ├── 虚拟机.cpp             # 寄存器式虚拟机 (VM)
+│   ├── JIT.cpp                # JIT 编译器（x86-64 机器码生成）
+│   └── UTF32支持.cpp          # UTF-8 ↔ UTF-32 转换
+├── includes/
+│   ├── main.h                # 窗口初始化
+│   ├── REPL.h                # REPL 接口
+│   ├── 词法分析器.h           # Token 定义
 │   ├── 语法树.h               # AST 节点定义
-│   ├── 语法分析器.cpp/.h      # 递归下降语法分析器 (Parser)
-│   ├── 语义分析.cpp/.h        # 语义分析 + 符号表 (Semantic)
-│   ├── 字节码.h               # 字节码定义 + 生成器（寄存器式指令集）
-│   ├── 字节码生成.cpp          # 字节码生成 (BytecodeGenerator)
-│   ├── 虚拟机.cpp/.h          # 寄存器式虚拟机 (VM)
-│   │
-│   ├── UTF32支持.cpp/.h       # UTF-8 ↔ UTF-32 转换
+│   ├── 语法分析器.h           # Parser 类
+│   ├── 语义分析.h             # 语义分析 + 符号表
+│   ├── 字节码.h               # 字节码定义 + 生成器
+│   ├── 虚拟机.h               # VM 类
 │   ├── 全局内容.h             # 全局状态
 │   ├── 输出彩色支持.h         # ANSI 彩色输出
 │   ├── 异常上报.h             # 错误/警告处理
 │   ├── 信息上报.h             # 信息上报
 │   ├── 调试输出支持.h         # 调试输出
 │   └── 平台检测.h             # 平台检测
-├── example.rua
+├── arch/                       # 平台抽象层
+│   ├── JITPlatform.h          # JIT 内存管理接口
+│   ├── JITPlatform_linux.h    # Linux: mmap/mprotect
+│   ├── JITPlatform_linux.cpp
+│   ├── JITPlatform_windows.h  # Windows: VirtualAlloc
+│   ├── JITPlatform_windows.cpp
+│   ├── Console.h              # 终端控制接口
+│   ├── Console_linux.h        # Linux: 终端标题/用户名
+│   ├── Console_linux.cpp
+│   ├── Console_windows.h      # Windows: Win32 控制台
+│   └── Console_windows.cpp
+├── scripts/
+│   ├── build_debug.py         # Linux Debug
+│   ├── build_release.py       # Linux Release
+│   ├── build_optimized.py     # Linux 优化版 (JIT)
+│   ├── build_debug_windows.py     # Windows Debug
+│   ├── build_release_windows.py   # Windows Release
+│   └── build_optimized_windows.py # Windows 优化版 (JIT)
+├── example/
+│   ├── bench_fib.rua          # 斐波那契基准测试
+│   ├── bench_loop.rua         # 循环基准测试
+│   ├── calc_fib.rua           # 斐波那契计算
+│   └── example.rua            # 综合示例
 └── docs/
     └── Rua语言参考.md
 ```
@@ -238,6 +264,61 @@ NEW_INST = 0x13,
 | 0x11 | RET | 函数返回 |
 | 0x12 | PRINT rs | 输出 reg(rs) |
 
+### 3.7 JIT 编译 — `JIT`
+
+优化模式 (`-DOPTIMIZATION`) 下，纯整数/算术函数会被编译为 x86-64 机器码直接执行。
+
+**触发条件：**
+- 编译时添加 `-DOPTIMIZATION` 宏
+- 函数不含 MOVS（字符串操作）或 PRINT（输出）
+
+**寄存器映射 (x86-64)：**
+
+| Rua vreg | x86-64 | 类型 | 说明 |
+|----------|--------|------|------|
+| v0 | RAX | — | 返回值 |
+| v1 | RBX | callee-saved | 参数1 |
+| v2 | R12 | callee-saved | — |
+| v3 | R13 | callee-saved | — |
+| v4 | R14 | callee-saved | — |
+| v5 | R15 | callee-saved | — |
+| v6 | RSI | caller-saved | — |
+| v7 | RDI | caller-saved | — |
+| v8 | RDX | caller-saved | — |
+| v9 | RCX | caller-saved | — |
+| v10 | R8 | caller-saved | — |
+| v11 | R9 | caller-saved | — |
+| v12 | R10 | caller-saved | 临时 |
+| v13 | R11 | caller-saved | 临时 |
+| v14+ | 栈 | spill | 溢出到栈 |
+
+**函数调用 (SysV ABI)：**
+1. 参数通过 RDI, RSI, RDX, RCX, R8, R9 传递
+2. CALL 前保存所有 caller-saved 寄存器
+3. CALL 后恢复所有 caller-saved 寄存器
+4. 返回值在 RAX
+
+**调试：**
+```bash
+# 启用 JIT 调试输出
+python3 scripts/build_optimized.py  # -DOPTIMIZATION -D_DEBUG
+./build/Rua example.rua 2>&1 | grep '\[JIT\]'
+```
+
+输出示例：
+```
+[JIT] ======== JIT 编译开始 ========
+[JIT] ========== 编译函数 [0] fib ==========
+[JIT]   参数数=1 最大vreg=10
+[JIT]   寄存器分配:
+[JIT]     v0 -> RAX (caller-saved)
+[JIT]     v1 -> RBX (callee-saved)
+[JIT]   CALL func[0] fib 参数数=1
+[JIT]     caller-saved保存: push R11,R10,R9,R8,RCX,RDX,RDI,RSI
+[JIT]   编译完成: 202 字节机器码
+[JIT] ======== JIT 编译完成 ========
+```
+
 ## 四、如何扩展
 
 ### 4.1 新增关键词
@@ -271,32 +352,61 @@ NEW_INST = 0x13,
 
 ## 五、构建与使用
 
-```bash
-# 构建
-cmake -S . -B build
-cmake --build build
+### Linux / macOS
 
-# 运行文件（脚本模式 / 函数模式均可）
+```bash
+# Debug 版（解释器模式）
+python3 scripts/build_debug.py
 ./build/Rua example.rua
 
-# REPL 模式
-./build/Rua
-# 输入多行代码，以 "运行" 结束执行
+# Release 版（解释器模式，优化）
+python3 scripts/build_release.py
+./build/Rua example.rua
 
-# 调试模式
-cmake -S . -B build_dbg -DCMAKE_BUILD_TYPE=Debug
-cmake --build build_dbg
-./build_dbg/Rua example.rua   # 会输出字节码反汇编
+# 优化版（JIT + 调试输出）
+python3 scripts/build_optimized.py
+./build/Rua example.rua   # JIT 编译 + 调试信息
+```
 
-# 优化模式（开启超级指令、编译期求值等）
-cmake -S . -B build_opt \
-  -DCMAKE_BUILD_TYPE=Debug \
+### Windows
+
+```bash
+# Debug 版（解释器模式）
+python scripts/build_debug_windows.py
+build_windows\Debug\Rua.exe example.rua
+
+# Release 版（解释器模式，优化）
+python scripts/build_release_windows.py
+build_windows\Release\Rua.exe example.rua
+
+# 优化版（JIT + 调试输出）
+python scripts/build_optimized_windows.py
+build_windows\Debug\Rua.exe example.rua   # JIT 编译 + 调试信息
+```
+
+### 手动构建
+
+```bash
+# Linux Debug（解释器模式）
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+./build/Rua example.rua
+
+# Linux 优化版（JIT 模式）
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_CXX_FLAGS="-Ofast -Wall -march=native -flto -DOPTIMIZATION -D_DEBUG"
-cmake --build build_opt
-./build_opt/Rua example.rua   # 调试输出 + 优化
+cmake --build build
+./build/Rua example.rua   # JIT 编译 + 调试信息
 
-# 或用脚本
-./scripts/build_optimized.py   # 优化版（Debug + OPTIMIZATION 宏）
-./scripts/build_release.py     # 普通 Release，无 OPTIMIZATION
-./scripts/build_debug.py       # Debug 版
+# Windows (需安装 Visual Studio)
+cmake -S . -B build_windows -G "Visual Studio 17 2022" -A x64
+cmake --build build_windows --config Release
+build_windows\Release\Rua.exe example.rua
+```
+
+### REPL 模式
+
+```bash
+./build/Rua          # 无参数启动 REPL
+# 输入多行代码，以 "运行" 结束执行
 ```
