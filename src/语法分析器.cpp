@@ -440,9 +440,7 @@ unique_ptr<CallExpr> Parser::parseCall(const string& callee, int line,
 // ==================== 工具方法 ====================
 
 bool Parser::isAtEnd() const
-{
-    return current >= tokens.size() || tokens[current].类型_ == TK::结束;
-}
+{ return current >= tokens.size() || tokens[current].类型_ == TK::结束; }
 
 const 令牌& Parser::peek() const { return tokens[current]; }
 

@@ -600,3 +600,311 @@ int BytecodeGenerator::visit(Identifier& node)
     program.emit(Opcode::MOVI, rd, 0, 0, program.addConstant(0));
     return rd;
 }
+
+#ifdef OPTIMIZATION
+
+static Opcode tacOpToOpcode(TACOpcode op) {
+    switch (op) {
+    case TACOpcode::ADD: return Opcode::ADD;
+    case TACOpcode::SUB: return Opcode::SUB;
+    case TACOpcode::MUL: return Opcode::MUL;
+    case TACOpcode::DIV: return Opcode::DIV;
+    case TACOpcode::MOD: return Opcode::MOD;
+    case TACOpcode::EQ:  return Opcode::EQ;
+    case TACOpcode::NE:  return Opcode::NE;
+    case TACOpcode::LT:  return Opcode::LT;
+    case TACOpcode::GT:  return Opcode::GT;
+    case TACOpcode::LE:  return Opcode::LE;
+    case TACOpcode::GE:  return Opcode::GE;
+    default: return Opcode::HALT;
+    }
+}
+
+BytecodeProgram BytecodeGenerator::generateFromTAC(const TACProgram& tac,
+                                                     const std::vector<int>& tacRegCounts)
+{
+    program = BytecodeProgram();
+    totalReg = 0;
+    tempReg = 0;
+    maxReg = 0;
+    regMaps.clear();
+
+    // Register function metadata
+    for (size_t i = 0; i < tac.functions.size(); i++) {
+        auto& tf = tac.functions[i];
+        program.addFunction(tf.name, tf.paramCount);
+    }
+
+    // Skip over function definitions
+    int jmpPos = program.getCodeSize();
+    program.emit(Opcode::JMP, 0, 0, 0, 0);
+
+    // For each function: record jump patches needed
+    struct JumpPatch {
+        int bytecodeOffset;
+        int targetTACInstIdx;
+    };
+    std::vector<JumpPatch> patches;
+
+    // Emit each function
+    for (size_t fi = 0; fi < tac.functions.size(); fi++) {
+        auto& tf = tac.functions[fi];
+        auto& funcInfo = program.functions[fi];
+        funcInfo.codeOffset = program.getCodeSize();
+
+        funcInfo.localCount = tf.regCount - tf.paramCount;
+        funcInfo.regCount = tf.regCount;
+
+        // Map: TAC instruction index -> bytecode offset
+        std::vector<int> instToOffset(tf.instructions.size(), -1);
+
+        for (int ti = 0; ti < static_cast<int>(tf.instructions.size()); ti++) {
+            auto& inst = tf.instructions[ti];
+            instToOffset[ti] = program.getCodeSize();
+            auto op = inst->getOpcode();
+
+            if (op == TACOpcode::MOVI) {
+                auto* m = static_cast<TACMovI*>(inst.get());
+                program.emit(Opcode::MOVI, m->rd.index, 0, 0, program.addConstant(m->constVal));
+            }
+            else if (op == TACOpcode::MOVS) {
+                auto* m = static_cast<TACMovS*>(inst.get());
+                program.emit(Opcode::MOVS, m->rd.index, 0, 0,
+                             program.addString(tac.strings[m->stringIdx]));
+            }
+            else if (op == TACOpcode::MOV) {
+                auto* m = static_cast<TACMov*>(inst.get());
+                program.emit(Opcode::MOV, m->rd.index, m->rs.index);
+            }
+            else if (op == TACOpcode::ADD || op == TACOpcode::SUB ||
+                     op == TACOpcode::MUL || op == TACOpcode::DIV ||
+                     op == TACOpcode::MOD || op == TACOpcode::EQ ||
+                     op == TACOpcode::NE || op == TACOpcode::LT ||
+                     op == TACOpcode::GT || op == TACOpcode::LE ||
+                     op == TACOpcode::GE) {
+                auto* b = static_cast<TACBinary*>(inst.get());
+                program.emit(tacOpToOpcode(op), b->rd.index, b->rs1.index, b->rs2.index);
+            }
+            else if (op == TACOpcode::JMP) {
+                auto* j = static_cast<TACJmp*>(inst.get());
+                // Emit with placeholder, patch later
+                int patchPos = program.getCodeSize();
+                program.emit(Opcode::JMP, 0, 0, 0, 0);
+                patches.push_back({patchPos, j->targetBlock});
+            }
+            else if (op == TACOpcode::JIF) {
+                auto* j = static_cast<TACJif*>(inst.get());
+                // Emit with placeholder, patch later
+                // For bytecode JIF: if (rs1==0) ip += offset
+                // TAC JIF: if cond==0 goto targetBlock, else goto fallBlock
+                // We need to handle both: target (cond==0) and fall (cond!=0)
+                // Since bytecode JIF only jumps on cond==0, we can directly use targetBlock
+                // For fallBlock, we need to check if fallBlock != ti+1 (i.e., there's a gap)
+                if (j->fallBlock != ti + 1) {
+                    // Fall-through is not the next instruction, need to emit JMP for fall
+                    int jmpPatch = program.getCodeSize();
+                    program.emit(Opcode::JMP, 0, 0, 0, 0);
+                    patches.push_back({jmpPatch, j->fallBlock});
+                }
+                int jifPatch = program.getCodeSize();
+                program.emit(Opcode::JIF, 0, j->cond.index, 0, 0);
+                patches.push_back({jifPatch, j->targetBlock});
+            }
+            else if (op == TACOpcode::PUSH) {
+                auto* p = static_cast<TACParm*>(inst.get());
+                program.emit(Opcode::PUSH, 0, p->rs.index);
+            }
+            else if (op == TACOpcode::CALL) {
+                auto* c = static_cast<TACCall*>(inst.get());
+                program.emit(Opcode::CALL, 0, 0, 0, c->funcIdx);
+                program.emit(Opcode::MOV, c->rd.index, 0);
+            }
+            else if (op == TACOpcode::PRINT) {
+                auto* p = static_cast<TACPrint*>(inst.get());
+                program.emit(Opcode::PRINT, 0, p->rs.index);
+            }
+            else if (op == TACOpcode::RET) {
+                auto* r = static_cast<TACRet*>(inst.get());
+                program.emit(Opcode::MOV, 0, r->rs.index);
+                program.emit(Opcode::RET);
+            }
+            else if (op == TACOpcode::HALT) {
+                program.emit(Opcode::HALT);
+            }
+        }
+
+        // Default epilogue if no explicit RET
+        if (tf.instructions.empty() || tf.instructions.back()->getOpcode() != TACOpcode::RET) {
+            int retReg = funcInfo.regCount;
+            program.emit(Opcode::MOVI, retReg, 0, 0, program.addConstant(0));
+            program.emit(Opcode::MOV, 0, retReg);
+            program.emit(Opcode::RET);
+        }
+
+        // Patch jumps: map TAC instruction index -> bytecode offset
+        // We need to patch within this function's range
+        // instToOffset maps TAC instruction index to bytecode offset
+        // We need a local patch list for this function
+    }
+
+    // Now patch all jumps globally
+    // patches[].targetTACInstIdx is relative to the TAC function
+    // but we need to know which function each patch belongs to
+    // Actually, patches are accumulated across functions, so we need per-function tracking
+    // Let me redo this with per-function tracking
+
+    // For now, the patches have been accumulated. We need to map
+    // TAC instruction index -> global bytecode offset
+    // But TAC instruction indices are per-function, so we need a global mapping
+
+    // Let me rebuild: compute cumulative instruction offsets
+    std::vector<int> funcStartTACIdx; // TAC instruction index where each function starts
+    int cumulativeIdx = 0;
+    for (size_t fi = 0; fi < tac.functions.size(); fi++) {
+        funcStartTACIdx.push_back(cumulativeIdx);
+        cumulativeIdx += static_cast<int>(tac.functions[fi].instructions.size());
+    }
+
+    // The patches store targetTACInstIdx which is local to each function
+    // We need to convert to global TAC index and then to bytecode offset
+    // This is getting complicated. Let me redo the patching with a simpler approach
+
+    // Actually, let me just redo the whole thing with per-function patch lists
+    program = BytecodeProgram();
+    totalReg = 0;
+    tempReg = 0;
+    maxReg = 0;
+
+    for (size_t i = 0; i < tac.functions.size(); i++) {
+        auto& tf = tac.functions[i];
+        program.addFunction(tf.name, tf.paramCount);
+    }
+
+    jmpPos = program.getCodeSize();
+    program.emit(Opcode::JMP, 0, 0, 0, 0);
+
+    // Per-function patches
+    struct Patch { int bcOffset; int tacTarget; };
+    std::vector<Patch> allPatches;
+
+    for (size_t fi = 0; fi < tac.functions.size(); fi++) {
+        auto& tf = tac.functions[fi];
+        auto& funcInfo = program.functions[fi];
+        funcInfo.codeOffset = program.getCodeSize();
+        funcInfo.localCount = tf.regCount - tf.paramCount;
+        funcInfo.regCount = tf.regCount;
+
+        std::vector<int> instToOffset(tf.instructions.size(), -1);
+
+        for (int ti = 0; ti < static_cast<int>(tf.instructions.size()); ti++) {
+            auto& inst = tf.instructions[ti];
+            instToOffset[ti] = program.getCodeSize();
+            auto op = inst->getOpcode();
+
+            if (op == TACOpcode::MOVI) {
+                auto* m = static_cast<TACMovI*>(inst.get());
+                program.emit(Opcode::MOVI, m->rd.index, 0, 0, program.addConstant(m->constVal));
+            }
+            else if (op == TACOpcode::MOVS) {
+                auto* m = static_cast<TACMovS*>(inst.get());
+                program.emit(Opcode::MOVS, m->rd.index, 0, 0,
+                             program.addString(tac.strings[m->stringIdx]));
+            }
+            else if (op == TACOpcode::MOV) {
+                auto* m = static_cast<TACMov*>(inst.get());
+                program.emit(Opcode::MOV, m->rd.index, m->rs.index);
+            }
+            else if (op == TACOpcode::ADD || op == TACOpcode::SUB ||
+                     op == TACOpcode::MUL || op == TACOpcode::DIV ||
+                     op == TACOpcode::MOD || op == TACOpcode::EQ ||
+                     op == TACOpcode::NE || op == TACOpcode::LT ||
+                     op == TACOpcode::GT || op == TACOpcode::LE ||
+                     op == TACOpcode::GE) {
+                auto* b = static_cast<TACBinary*>(inst.get());
+                program.emit(tacOpToOpcode(op), b->rd.index, b->rs1.index, b->rs2.index);
+            }
+            else if (op == TACOpcode::JMP) {
+                auto* j = static_cast<TACJmp*>(inst.get());
+                int pos = program.getCodeSize();
+                program.emit(Opcode::JMP, 0, 0, 0, 0);
+                allPatches.push_back({pos, j->targetBlock});
+            }
+            else if (op == TACOpcode::JIF) {
+                auto* j = static_cast<TACJif*>(inst.get());
+                // If fall-through is not the next instruction, emit JMP for the fall path
+                if (j->fallBlock != ti + 1) {
+                    int jmpPos2 = program.getCodeSize();
+                    program.emit(Opcode::JMP, 0, 0, 0, 0);
+                    allPatches.push_back({jmpPos2, j->fallBlock});
+                }
+                int jifPos = program.getCodeSize();
+                program.emit(Opcode::JIF, 0, j->cond.index, 0, 0);
+                allPatches.push_back({jifPos, j->targetBlock});
+            }
+            else if (op == TACOpcode::PUSH) {
+                auto* p = static_cast<TACParm*>(inst.get());
+                program.emit(Opcode::PUSH, 0, p->rs.index);
+            }
+            else if (op == TACOpcode::CALL) {
+                auto* c = static_cast<TACCall*>(inst.get());
+                program.emit(Opcode::CALL, 0, 0, 0, c->funcIdx);
+                program.emit(Opcode::MOV, c->rd.index, 0);
+            }
+            else if (op == TACOpcode::PRINT) {
+                auto* p = static_cast<TACPrint*>(inst.get());
+                program.emit(Opcode::PRINT, 0, p->rs.index);
+            }
+            else if (op == TACOpcode::RET) {
+                auto* r = static_cast<TACRet*>(inst.get());
+                program.emit(Opcode::MOV, 0, r->rs.index);
+                program.emit(Opcode::RET);
+            }
+            else if (op == TACOpcode::HALT) {
+                program.emit(Opcode::HALT);
+            }
+        }
+
+        // Default epilogue
+        if (tf.instructions.empty() || tf.instructions.back()->getOpcode() != TACOpcode::RET) {
+            int retReg = funcInfo.regCount;
+            program.emit(Opcode::MOVI, retReg, 0, 0, program.addConstant(0));
+            program.emit(Opcode::MOV, 0, retReg);
+            program.emit(Opcode::RET);
+        }
+
+        // Patch jumps within this function
+        for (auto& p : allPatches) {
+            // tacTarget is a TAC instruction index local to this function
+            if (p.tacTarget >= 0 && p.tacTarget < static_cast<int>(instToOffset.size())) {
+                int targetBcOffset = instToOffset[p.tacTarget];
+                int relativeOffset = targetBcOffset - (p.bcOffset + 8);
+                program.patchOperand(p.bcOffset, relativeOffset);
+            }
+        }
+        allPatches.clear();
+    }
+
+    // Patch the initial JMP to entry point
+    int entryPos = program.getCodeSize();
+    program.patchOperand(jmpPos, entryPos - (jmpPos + 8));
+
+    int mainIdx = -1;
+    for (int i = 0; i < static_cast<int>(program.functions.size()); i++) {
+        if (program.functions[i].name == "主函数") {
+            mainIdx = i;
+            break;
+        }
+    }
+
+    if (mainIdx >= 0) {
+        int r0Temp = 1;
+        program.emit(Opcode::MOVI, r0Temp, 0, 0, program.addConstant(0));
+        program.emit(Opcode::PUSH, 0, r0Temp);
+        program.emit(Opcode::CALL, 0, 0, 0, mainIdx);
+        program.emit(Opcode::HALT);
+    }
+    program.entryPoint = "主函数";
+    return program;
+}
+
+#endif

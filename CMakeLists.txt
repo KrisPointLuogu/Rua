@@ -29,8 +29,11 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -Wall -march=native -flto")
 endif()
 
+# ========== 优化器选项 ==========
+option(ENABLE_OPTIMIZATION "Enable TAC IR and optimization passes" OFF)
+
 # ========== 源文件 ==========
-add_executable(Rua
+set(RUA_CORE_SOURCES
     src/main.cpp
     src/REPL.cpp
     src/UTF32支持.cpp
@@ -40,6 +43,29 @@ add_executable(Rua
     src/字节码生成.cpp
     src/虚拟机.cpp
     src/JIT.cpp
+)
+
+# Optimization IR and passes
+if(ENABLE_OPTIMIZATION)
+    add_compile_definitions(OPTIMIZATION)
+    list(APPEND RUA_CORE_SOURCES
+        src/IR/中间指令.cpp
+        src/IR/基本块.cpp
+        src/IR/控制流图.cpp
+        src/IR/支配树.cpp
+        src/中间生成.cpp
+        src/Optimizer/优化管理器.cpp
+        src/Optimizer/常量传播.cpp
+        src/Optimizer/死代码消除.cpp
+        src/Optimizer/循环不变量外提.cpp
+        src/Optimizer/循环展开.cpp
+        src/Optimizer/函数内联.cpp
+        src/Optimizer/强度削减.cpp
+    )
+endif()
+
+add_executable(Rua
+    ${RUA_CORE_SOURCES}
     ${PLATFORM_SOURCES}
 )
 
