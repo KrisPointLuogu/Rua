@@ -7,12 +7,29 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_C_STANDARD 17)
 
-if(MSVC)
-    add_compile_options(/utf-8 /W3)
+# ========== 平台检测 ==========
+if(WIN32)
+    add_compile_definitions(_WIN)
+    set(PLATFORM_SOURCES
+        arch/JITPlatform_windows.cpp
+        arch/Console_windows.cpp
+    )
+elseif(UNIX)
+    add_compile_definitions(_LINUX)
+    set(PLATFORM_SOURCES
+        arch/JITPlatform_linux.cpp
+        arch/Console_linux.cpp
+    )
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -Wall -march=native -flto")
+# ========== 编译器标志 ==========
+if(MSVC)
+    add_compile_options(/utf-8 /W3 /O2)
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -Wall -march=native -flto")
+endif()
 
+# ========== 源文件 ==========
 add_executable(Rua
     src/main.cpp
     src/REPL.cpp
@@ -23,10 +40,12 @@ add_executable(Rua
     src/字节码生成.cpp
     src/虚拟机.cpp
     src/JIT.cpp
+    ${PLATFORM_SOURCES}
 )
 
-target_include_directories(Rua PRIVATE includes)
+target_include_directories(Rua PRIVATE includes arch)
 
+# ========== 调试宏 ==========
 if(WIN32)
     target_compile_definitions(Rua PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 else()
