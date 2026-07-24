@@ -370,3 +370,6 @@ CMakeFiles/
 CMakeUserPresets.json
 _deps/
 compile_commands.jsonbuild_pgo*/
+
+BUG_FIX
+.clang-format
