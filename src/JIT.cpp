@@ -487,8 +487,6 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo &func,
 
 	for (int pc = func.codeOffset; pc < endOff; pc += 8)
 	{
-			break;
-		}
 		// 如果此 PC 是跳转目标，记录 JIT 位置
 		auto lit = pcLabels.find(pc);
 		if (lit != pcLabels.end())
@@ -783,7 +781,7 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo &func,
 			else
 			{
 				// 前向跳转：创建新 label，稍后回填
-				size_t label = makeLabel();
+				makeLabel();
 				pcLabels[targetPc] = (int32_t)-1; // 占位
 				size_t patchPos = codePos;
 				emit8(0xE9); emit32(0); // jmp rel32 占位
@@ -903,7 +901,6 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo &func,
 		}
 	}
 
-func_done:
 	// ===== 函数尾声 =====
 	int32_t epilogueStart = (int32_t)codePos;
 	if (alignedFrame > 0)
