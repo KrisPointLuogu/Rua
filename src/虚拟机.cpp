@@ -277,6 +277,7 @@ op_print: {
         std::cout << v.data;
     else
         std::cout << strPool[v.data];
+    std::cout << '\n';
     ip += 8;
     NEXT();
 }
