@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <iostream>
+#include <unordered_map>
+#include <vector>
 #include "Optimizer/优化管理器.h"
 
 bool ConstantPropagation::run(TACProgram& program, int funcIdx)
@@ -10,48 +12,79 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
     auto& func = program.functions[funcIdx];
     bool changed = false;
 
-    std::vector<int> constVals(256, 0);
-    std::vector<bool> isConst(256, false);
-
-    for (const auto& param : func.instructions) {
-        // params are not constant
+    // Detect loop body ranges via backward jumps.
+    // Any instruction in [target, jumpIdx] is inside a loop body.
+    struct LoopRange { int start, end; };
+    std::vector<LoopRange> loops;
+    for (int i = 0; i < static_cast<int>(func.instructions.size()); i++) {
+        auto op = func.instructions[i]->getOpcode();
+        int target = -1;
+        if (op == TACOpcode::JMP) {
+            target = static_cast<TACJmp*>(func.instructions[i].get())->targetBlock;
+        } else if (op == TACOpcode::JIF) {
+            target = static_cast<TACJif*>(func.instructions[i].get())->targetBlock;
+        }
+        if (target >= 0 && target < i) {
+            loops.push_back({target, i});
+        }
     }
 
-    for (auto& inst : func.instructions) {
+    auto isInLoop = [&](int idx) -> bool {
+        for (auto& lr : loops) {
+            if (idx >= lr.start && idx <= lr.end) return true;
+        }
+        return false;
+    };
+
+    // Use a single map keyed by register index (ignoring VAR/TEMP distinction)
+    // because VAR[X] and TEMP[X] share the same physical register.
+    std::unordered_map<int, int> regConstVals;
+    std::unordered_map<int, bool> regIsConst;
+
+    auto clearConst = [&](int regIdx) {
+        regIsConst[regIdx] = false;
+    };
+
+    auto setConst = [&](int regIdx, int val) {
+        regConstVals[regIdx] = val;
+        regIsConst[regIdx] = true;
+    };
+
+    auto isConst = [&](int regIdx) -> bool {
+        auto it = regIsConst.find(regIdx);
+        return it != regIsConst.end() && it->second;
+    };
+
+    auto getConst = [&](int regIdx) -> int {
+        return regConstVals[regIdx];
+    };
+
+    for (int i = 0; i < static_cast<int>(func.instructions.size()); i++) {
+        auto& inst = func.instructions[i];
         auto op = inst->getOpcode();
+
         if (op == TACOpcode::MOVI) {
             auto* m = static_cast<TACMovI*>(inst.get());
-            if (m->rd.kind == TACValueKind::TEMP) {
-                constVals[m->rd.index] = m->constVal;
-                isConst[m->rd.index] = true;
-            }
+            setConst(m->rd.index, m->constVal);
+        } else if (op == TACOpcode::MOVS) {
+            auto* m = static_cast<TACMovS*>(inst.get());
+            clearConst(m->rd.index);
         } else if (op == TACOpcode::MOV) {
             auto* m = static_cast<TACMov*>(inst.get());
-            if (m->rs.kind == TACValueKind::VAR && isConst[m->rs.index]) {
-                inst = std::make_unique<TACMovI>(m->rd, constVals[m->rs.index]);
-                if (m->rd.kind == TACValueKind::TEMP) {
-                    constVals[m->rd.index] = constVals[m->rs.index];
-                    isConst[m->rd.index] = true;
-                }
-                changed = true;
-            } else if (m->rs.kind == TACValueKind::TEMP
-                       && isConst[m->rs.index]) {
-                if (m->rd.kind == TACValueKind::TEMP) {
-                    constVals[m->rd.index] = constVals[m->rs.index];
-                    isConst[m->rd.index] = true;
-                }
+            if (isConst(m->rs.index)) {
+                setConst(m->rd.index, getConst(m->rs.index));
+            } else {
+                clearConst(m->rd.index);
             }
         } else if (op == TACOpcode::ADD || op == TACOpcode::SUB
                    || op == TACOpcode::MUL || op == TACOpcode::DIV
                    || op == TACOpcode::MOD) {
             auto* b = static_cast<TACBinary*>(inst.get());
-            bool lhsConst
-                = (b->rs1.kind == TACValueKind::TEMP && isConst[b->rs1.index]);
-            bool rhsConst
-                = (b->rs2.kind == TACValueKind::TEMP && isConst[b->rs2.index]);
-            if (lhsConst && rhsConst) {
-                int l = constVals[b->rs1.index];
-                int r = constVals[b->rs2.index];
+            bool lhsConst = isConst(b->rs1.index);
+            bool rhsConst = isConst(b->rs2.index);
+            if (lhsConst && rhsConst && !isInLoop(i)) {
+                int l = getConst(b->rs1.index);
+                int r = getConst(b->rs2.index);
                 int result = 0;
                 switch (op) {
                 case TACOpcode::ADD: result = l + r; break;
@@ -62,23 +95,20 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
                 default: break;
                 }
                 inst = std::make_unique<TACMovI>(b->rd, result);
-                if (b->rd.kind == TACValueKind::TEMP) {
-                    constVals[b->rd.index] = result;
-                    isConst[b->rd.index] = true;
-                }
+                setConst(b->rd.index, result);
                 changed = true;
+            } else {
+                clearConst(b->rd.index);
             }
         } else if (op == TACOpcode::EQ || op == TACOpcode::NE
                    || op == TACOpcode::LT || op == TACOpcode::GT
                    || op == TACOpcode::LE || op == TACOpcode::GE) {
             auto* b = static_cast<TACBinary*>(inst.get());
-            bool lhsConst
-                = (b->rs1.kind == TACValueKind::TEMP && isConst[b->rs1.index]);
-            bool rhsConst
-                = (b->rs2.kind == TACValueKind::TEMP && isConst[b->rs2.index]);
-            if (lhsConst && rhsConst) {
-                int l = constVals[b->rs1.index];
-                int r = constVals[b->rs2.index];
+            bool lhsConst = isConst(b->rs1.index);
+            bool rhsConst = isConst(b->rs2.index);
+            if (lhsConst && rhsConst && !isInLoop(i)) {
+                int l = getConst(b->rs1.index);
+                int r = getConst(b->rs2.index);
                 int result = 0;
                 switch (op) {
                 case TACOpcode::EQ: result = (l == r) ? 1 : 0; break;
@@ -90,16 +120,14 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
                 default: break;
                 }
                 inst = std::make_unique<TACMovI>(b->rd, result);
-                if (b->rd.kind == TACValueKind::TEMP) {
-                    constVals[b->rd.index] = result;
-                    isConst[b->rd.index] = true;
-                }
+                setConst(b->rd.index, result);
                 changed = true;
+            } else {
+                clearConst(b->rd.index);
             }
-        } else {
-            // 仅 CALL 可能修改返回寄存器 (r0)，其他指令不改变量
-            if (op == TACOpcode::CALL)
-                isConst.assign(256, false);
+        } else if (op == TACOpcode::CALL) {
+            auto* c = static_cast<TACCall*>(inst.get());
+            clearConst(c->rd.index);
         }
     }
     return changed;

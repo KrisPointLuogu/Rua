@@ -5,9 +5,9 @@
  * 使用 arch:: 分配可执行内存，手写 x86-64 字节码。
  *
  * 寄存器映射 (固定):
- *   v0(RAX) v1(RDI) v2(RSI) v3(RDX) v4(RCX)
- *   v5(R8)  v6(R9)  v7(R10) v8(R11)
- *   v9(RBX) v10(R12) v11(R13) v12(R14) v13(R15)
+ *   v0(RAX) v1(RBX) v2(R12) v3(R13) v4(R14) v5(R15)  (callee-saved)
+ *   v6(RSI) v7(RDI) v8(RDX) v9(RCX) v10(R8) v11(R9)  (caller-saved)
+ *   v12(R10) v13(R11)
  *   v14+ → 栈溢出
  */
 
@@ -353,12 +353,28 @@ void JITCompiler::emitJumpToLabel(const char* cc, size_t label)
         forwardJumps.push_back({ codePos - 4, label });
     } else {
         // 后向跳转：直接写偏移
-        // JMP rel32 指令长5字节，偏移量从指令末尾(codePos+5)算起
-        int32_t offset = labels[label].target - (int32_t)(codePos + 5);
-        if (cc)
-            emitJCCrel(cc, offset);
-        else
+        if (cc) {
+            int32_t offShort = labels[label].target - (int32_t)(codePos + 2);
+            int32_t offLong = labels[label].target - (int32_t)(codePos + 6);
+            if (offShort >= -128 && offShort <= 127) {
+                static const char* cclist[] = {
+                    "jo", "jno", "jb", "jae", "je", "jne", "jbe", "ja",
+                    "js", "jns", "jp", "jnp", "jl", "jge", "jle", "jg",
+                };
+                int op = -1;
+                for (int i = 0; i < 16; i++)
+                    if (strcmp(cc, cclist[i]) == 0) { op = i; break; }
+                if (op >= 0) {
+                    emit8(0x70 | op);
+                    emit8((int8_t)offShort);
+                }
+            } else {
+                emitJCCrel(cc, offLong);
+            }
+        } else {
+            int32_t offset = labels[label].target - (int32_t)(codePos + 5);
             emitJMPrel(offset);
+        }
     }
 }
 
@@ -382,6 +398,7 @@ bool JITCompiler::canJIT(const FunctionInfo& func, const BytecodeProgram& prog)
     for (int pc = func.codeOffset; pc < end; pc += 8) {
         Opcode op = (Opcode)prog.code[pc];
         if (op == Opcode::MOVS) return false;
+        if (op == Opcode::DIV || op == Opcode::MOD) return false;
     }
     return true;
 }
@@ -459,7 +476,7 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
          needR13 = (func.paramCount >= 3);
     bool needR14 = false, needR15 = false;
     for (int pc = func.codeOffset; pc < endOff; pc += 8) {
-        uint8_t rd = code[pc + 1], rs1 = code[pc + 2];
+        uint8_t rd = code[pc + 1], rs1 = code[pc + 2], rs2 = code[pc + 3];
         int p = vregToPhys(rd);
         if (p == RBX) needRBX = true;
         if (p == R12) needR12 = true;
@@ -471,6 +488,11 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
         if (vregToPhys(rs1) == R13) needR13 = true;
         if (vregToPhys(rs1) == R14) needR14 = true;
         if (vregToPhys(rs1) == R15) needR15 = true;
+        if (vregToPhys(rs2) == RBX) needRBX = true;
+        if (vregToPhys(rs2) == R12) needR12 = true;
+        if (vregToPhys(rs2) == R13) needR13 = true;
+        if (vregToPhys(rs2) == R14) needR14 = true;
+        if (vregToPhys(rs2) == R15) needR15 = true;
     }
 
     // 栈溢出槽位（v14+ 的寄存器需要 spill 到栈）
@@ -531,9 +553,12 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
 
     // 将参数从 SysV 调用约定寄存器复制到对应的 callee-saved 物理寄存器
     // （必须在 callee-saved push 之后，确保原始值已保存）
-    if (func.paramCount >= 1) emitMOV(RBX, RDI);
-    if (func.paramCount >= 2) emitMOV(R12, RSI);
-    if (func.paramCount >= 3) emitMOV(R13, RDX);
+    if (func.paramCount >= 1) emitMOV(RBX, RDI);   // v1 ← RDI
+    if (func.paramCount >= 2) emitMOV(R12, RSI);   // v2 ← RSI
+    if (func.paramCount >= 3) emitMOV(R13, RDX);   // v3 ← RDX
+    if (func.paramCount >= 4) emitMOV(R14, RCX);   // v4 ← RCX
+    if (func.paramCount >= 5) emitMOV(R15, R8);    // v5 ← R8
+    if (func.paramCount >= 6) emitMOV(RSI, R9);    // v6 ← R9
 
     // ===== 翻译字节码 =====
     vector<int> pushStack; // 记录 PUSH 的虚拟寄存器，供 CALL 使用
@@ -751,6 +776,64 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
             }
 #endif
 
+            break;
+        }
+
+        case Opcode::DIV: {
+            int pdst = vregToPhys(rd);
+            int psrc1 = vregToPhys(rs1);
+            int psrc2 = vregToPhys(rs2);
+            if (psrc1 >= 0) {
+                if (psrc1 != RAX) emitMOV(RAX, psrc1);
+            } else {
+                emitMOVfromStack(RAX, spillBase - (rs1 - 14) * 8);
+            }
+            emitREX(1, 0, 0, 0);
+            emit8(0x99);
+            if (psrc2 >= 0) {
+                emitREX(1, 0, 0, psrc2 >= 8);
+                emit8(0xF7);
+                emitModRM(3, 7, psrc2 & 7);
+            } else {
+                int t2 = R10;
+                emitMOVfromStack(t2, spillBase - (rs2 - 14) * 8);
+                emitREX(1, 0, 0, 0);
+                emit8(0xF7);
+                emitModRM(3, 7, t2 & 7);
+            }
+            if (pdst >= 0 && pdst != RAX)
+                emitMOV(pdst, RAX);
+            else if (pdst < 0)
+                emitMOVtoStack(spillBase - (rd - 14) * 8, RAX);
+            break;
+        }
+
+        case Opcode::MOD: {
+            int pdst = vregToPhys(rd);
+            int psrc1 = vregToPhys(rs1);
+            int psrc2 = vregToPhys(rs2);
+            if (psrc1 >= 0) {
+                if (psrc1 != RAX) emitMOV(RAX, psrc1);
+            } else {
+                emitMOVfromStack(RAX, spillBase - (rs1 - 14) * 8);
+            }
+            emitREX(1, 0, 0, 0);
+            emit8(0x99);
+            if (psrc2 >= 0) {
+                emitREX(1, 0, 0, psrc2 >= 8);
+                emit8(0xF7);
+                emitModRM(3, 7, psrc2 & 7);
+            } else {
+                int t2 = R10;
+                emitMOVfromStack(t2, spillBase - (rs2 - 14) * 8);
+                emitREX(1, 0, 0, 0);
+                emit8(0xF7);
+                emitModRM(3, 7, t2 & 7);
+            }
+            if (pdst >= 0 && pdst != RDX)
+                emitMOV(pdst, RDX);
+            else if (pdst < 0)
+                emitMOVtoStack(spillBase - (rd - 14) * 8, RDX);
             break;
         }
 
@@ -1040,10 +1123,27 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
             for (int i = 0; i < pCnt && i < 6; i++) {
                 int vreg = pushStack[realStart + i];
                 int preg = vregToPhys(vreg);
-                if (preg >= 0)
-                    emitMOV(argRegs[i], preg);
-                else
+                if (preg >= 0) {
+                    if (preg == argRegs[i]) {
+                        // 源和目标相同，不需要拷贝
+                    } else {
+                        bool conflict = false;
+                        for (int j = i + 1; j < pCnt && j < 6; j++) {
+                            if (preg == argRegs[j]) {
+                                conflict = true;
+                                break;
+                            }
+                        }
+                        if (conflict) {
+                            emitMOV(R10, preg);
+                            emitMOV(argRegs[i], R10);
+                        } else {
+                            emitMOV(argRegs[i], preg);
+                        }
+                    }
+                } else {
                     emitMOVfromStack(argRegs[i], spillBase - (vreg - 14) * 8);
+                }
 #ifdef _DEBUG
                 const char* names[] = { "RAX", "RCX", "RDX", "RBX",
                                         "RSP", "RBP", "RSI", "RDI",

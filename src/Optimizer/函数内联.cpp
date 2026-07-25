@@ -17,14 +17,13 @@ bool FunctionInlining::run(TACProgram& program, int funcIdx)
         auto* call = static_cast<TACCall*>(inst);
         int calleeIdx = call->funcIdx;
 
-        if (calleeIdx == funcIdx) continue; // skip recursive calls
+        if (calleeIdx == funcIdx) continue;
         if (call->argCount != program.functions[calleeIdx].paramCount) continue;
 
         int calleeSize = static_cast<int>(
             program.functions[calleeIdx].instructions.size());
         if (calleeSize > 50) continue;
 
-        // Check if callee is recursive (contains CALL to itself)
         bool isRecursive = false;
         for (auto& calleeInst : program.functions[calleeIdx].instructions) {
             if (calleeInst->getOpcode() == TACOpcode::CALL) {
@@ -37,15 +36,6 @@ bool FunctionInlining::run(TACProgram& program, int funcIdx)
         }
         if (isRecursive) continue;
 
-        // find the PUSH instructions before the CALL
-        int parmCount = 0;
-        for (int j = i - 1; j >= 0 && parmCount < call->argCount + 1; j--) {
-            if (caller.instructions[j]->getOpcode() == TACOpcode::PUSH)
-                parmCount++;
-        }
-
-        // collect arguments from PUSH instructions (skip first which is r0
-        // dummy)
         std::vector<TACValue> args;
         int pushIdx = i - 1;
         while (pushIdx >= 0 && static_cast<int>(args.size()) < call->argCount) {
@@ -57,43 +47,41 @@ bool FunctionInlining::run(TACProgram& program, int funcIdx)
             pushIdx--;
         }
 
-        // clone callee body
         std::vector<std::unique_ptr<TACInst>> inlinedBody;
         for (auto& inst : program.functions[calleeIdx].instructions)
             inlinedBody.push_back(inst->clone());
 
-        // substitute parameters
         int paramRegBase = 1;
+        int nonParamBase = paramRegBase + static_cast<int>(args.size());
+        auto remapVar = [&](TACValue& v) {
+            if (v.kind == TACValueKind::VAR && v.index >= nonParamBase) {
+                v.kind = TACValueKind::TEMP;
+                v.index = 300 + (v.index - nonParamBase);
+            }
+        };
+
         for (auto& inst : inlinedBody) {
             auto op = inst->getOpcode();
             if (op == TACOpcode::MOV) {
                 auto* m = static_cast<TACMov*>(inst.get());
                 if (m->rs.kind == TACValueKind::VAR) {
                     int varIdx = m->rs.index;
-                    if (varIdx >= paramRegBase
-                        && varIdx
-                               < paramRegBase + static_cast<int>(args.size())) {
+                    if (varIdx >= paramRegBase && varIdx < nonParamBase) {
                         m->rs = args[varIdx - paramRegBase];
+                    } else {
+                        remapVar(m->rs);
                     }
                 }
-                if (m->rd.kind == TACValueKind::VAR) {
-                    // local variable in callee, map to temp
-                    if (m->rd.index
-                        >= paramRegBase + static_cast<int>(args.size())) {
-                        m->rd.kind = TACValueKind::TEMP;
-                        m->rd.index = 200 + m->rd.index;
-                    }
-                }
+                remapVar(m->rd);
             } else if (op == TACOpcode::MOVI) {
                 auto* m = static_cast<TACMovI*>(inst.get());
                 if (m->rd.kind == TACValueKind::VAR) {
                     int varIdx = m->rd.index;
-                    if (varIdx >= paramRegBase
-                        && varIdx
-                               < paramRegBase + static_cast<int>(args.size())) {
-                        // parameter load from constant - substitute directly
+                    if (varIdx >= paramRegBase && varIdx < nonParamBase) {
                         inst = std::make_unique<TACMov>(
                             m->rd, args[varIdx - paramRegBase]);
+                    } else {
+                        remapVar(m->rd);
                     }
                 }
             } else if (op == TACOpcode::ADD || op == TACOpcode::SUB
@@ -105,50 +93,53 @@ bool FunctionInlining::run(TACProgram& program, int funcIdx)
                 auto* b = static_cast<TACBinary*>(inst.get());
                 if (b->rs1.kind == TACValueKind::VAR) {
                     int varIdx = b->rs1.index;
-                    if (varIdx >= paramRegBase
-                        && varIdx
-                               < paramRegBase + static_cast<int>(args.size()))
+                    if (varIdx >= paramRegBase && varIdx < nonParamBase)
                         b->rs1 = args[varIdx - paramRegBase];
+                    else
+                        remapVar(b->rs1);
                 }
                 if (b->rs2.kind == TACValueKind::VAR) {
                     int varIdx = b->rs2.index;
-                    if (varIdx >= paramRegBase
-                        && varIdx
-                               < paramRegBase + static_cast<int>(args.size()))
+                    if (varIdx >= paramRegBase && varIdx < nonParamBase)
                         b->rs2 = args[varIdx - paramRegBase];
+                    else
+                        remapVar(b->rs2);
                 }
+                remapVar(b->rd);
+            } else if (op == TACOpcode::JIF) {
+                auto* j = static_cast<TACJif*>(inst.get());
+                remapVar(j->cond);
+            } else if (op == TACOpcode::PRINT) {
+                auto* p = static_cast<TACPrint*>(inst.get());
+                remapVar(p->rs);
+            } else if (op == TACOpcode::PUSH) {
+                auto* p = static_cast<TACParm*>(inst.get());
+                remapVar(p->rs);
             } else if (op == TACOpcode::RET) {
                 auto* r = static_cast<TACRet*>(inst.get());
-                // replace RET with MOV to the result register
                 inst = std::make_unique<TACMov>(call->rd, r->rs);
-            } else if (op == TACOpcode::PUSH || op == TACOpcode::CALL) {
+            } else if (op == TACOpcode::CALL) {
                 // nested calls - skip for simplicity
             }
         }
 
-        // remove PUSH instructions and the CALL
         int removeStart = i - call->argCount - 1;
-        int removeCount = i + 1 - removeStart; // argCount + 2
+        int removeCount = i + 1 - removeStart;
         int oldSize = static_cast<int>(caller.instructions.size());
         caller.instructions.erase(caller.instructions.begin() + removeStart,
                                   caller.instructions.begin() + i + 1);
 
-        // insert inlined body
         int inlinedSize = static_cast<int>(inlinedBody.size());
         caller.instructions.insert(caller.instructions.begin() + removeStart,
                                    std::make_move_iterator(inlinedBody.begin()),
                                    std::make_move_iterator(inlinedBody.end()));
 
-        // Build remapping: positions before removeStart unchanged,
-        // removeStart..i replaced by inlined body,
-        // positions after i shift by (inlinedSize - removeCount)
         std::vector<int> oldToNew(oldSize);
         int netShift = inlinedSize - removeCount;
         for (int k = 0; k < oldSize; k++) {
             if (k < removeStart) {
                 oldToNew[k] = k;
             } else if (k <= i) {
-                // removed/replaced: map to inlined body position
                 oldToNew[k] = removeStart + (k - removeStart);
             } else {
                 oldToNew[k] = k + netShift;
@@ -157,7 +148,7 @@ bool FunctionInlining::run(TACProgram& program, int funcIdx)
         fixJumpTargets(caller, oldToNew);
 
         changed = true;
-        break; // restart scan after modification
+        break;
     }
     return changed;
 }

@@ -150,11 +150,6 @@ int TACGenerator::visit(Program& node) {
         func->accept(*this);
     }
 
-    for (auto& f : program.functions) {
-        f.regCount = maxReg + 1;
-        f.localCount = f.regCount - f.paramCount;
-    }
-
     program.entryPoint = "主函数";
     return 0;
 }

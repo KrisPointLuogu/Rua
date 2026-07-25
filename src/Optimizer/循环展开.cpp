@@ -41,6 +41,22 @@ bool LoopUnrolling::run(TACProgram& program, int funcIdx)
         for (int j = loopBodyStart; j < loopEnd; j++)
             bodyCopy.push_back(func.instructions[j]->clone());
 
+        // Fix jump targets in cloned instructions
+        for (auto& inst : bodyCopy) {
+            auto op = inst->getOpcode();
+            if (op == TACOpcode::JMP) {
+                auto* j = static_cast<TACJmp*>(inst.get());
+                if (j->targetBlock >= loopBodyStart && j->targetBlock < loopEnd)
+                    j->targetBlock += bodyLen;
+            } else if (op == TACOpcode::JIF) {
+                auto* j = static_cast<TACJif*>(inst.get());
+                if (j->targetBlock >= loopBodyStart && j->targetBlock < loopEnd)
+                    j->targetBlock += bodyLen;
+                if (j->fallBlock >= loopBodyStart && j->fallBlock < loopEnd)
+                    j->fallBlock += bodyLen;
+            }
+        }
+
         // Insert duplicated body before the JMP
         func.instructions.insert(func.instructions.begin() + loopEnd,
                                  std::make_move_iterator(bodyCopy.begin()),

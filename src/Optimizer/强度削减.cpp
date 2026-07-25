@@ -1,5 +1,35 @@
 #include <iostream>
+#include <optional>
 #include "Optimizer/优化管理器.h"
+
+static std::optional<int> findConstBefore(const TACFunction& func, int pos,
+                                          TACValue target) {
+    if (target.kind != TACValueKind::TEMP) return std::nullopt;
+    for (int i = pos - 1; i >= 0; i--) {
+        auto& inst = func.instructions[i];
+        if (inst->getOpcode() == TACOpcode::MOVI) {
+            auto* m = static_cast<TACMovI*>(inst.get());
+            if (m->rd == target) return m->constVal;
+        }
+        auto op = inst->getOpcode();
+        if (op == TACOpcode::MOV) {
+            auto* mv = static_cast<TACMov*>(inst.get());
+            if (mv->rd == target) return std::nullopt;
+        } else if (op == TACOpcode::ADD || op == TACOpcode::SUB
+                   || op == TACOpcode::MUL || op == TACOpcode::DIV
+                   || op == TACOpcode::MOD || op == TACOpcode::EQ
+                   || op == TACOpcode::NE || op == TACOpcode::LT
+                   || op == TACOpcode::GT || op == TACOpcode::LE
+                   || op == TACOpcode::GE) {
+            auto* b = static_cast<TACBinary*>(inst.get());
+            if (b->rd == target) return std::nullopt;
+        } else if (op == TACOpcode::CALL) {
+            auto* c = static_cast<TACCall*>(inst.get());
+            if (c->rd == target) return std::nullopt;
+        }
+    }
+    return std::nullopt;
+}
 
 bool StrengthReduction::run(TACProgram& program, int funcIdx)
 {
@@ -9,50 +39,68 @@ bool StrengthReduction::run(TACProgram& program, int funcIdx)
     auto& func = program.functions[funcIdx];
     bool changed = false;
 
-    for (auto& inst : func.instructions) {
+    for (int i = 0; i < static_cast<int>(func.instructions.size()); i++) {
+        auto& inst = func.instructions[i];
         auto op = inst->getOpcode();
-        if (op != TACOpcode::MUL) continue;
 
-        auto* b = static_cast<TACBinary*>(inst.get());
-        if (b->rs2.kind != TACValueKind::TEMP) continue;
+        if (op == TACOpcode::MUL || op == TACOpcode::DIV
+            || op == TACOpcode::MOD || op == TACOpcode::ADD
+            || op == TACOpcode::SUB) {
+            auto* b = static_cast<TACBinary*>(inst.get());
 
-        // check if rs2 is loaded from a constant
-        for (auto& prev : func.instructions) {
-            if (prev.get() == inst.get()) break;
-            if (prev->getOpcode() == TACOpcode::MOVI) {
-                auto* m = static_cast<TACMovI*>(prev.get());
-                if (m->rd == b->rs2) {
-                    int val = m->constVal;
-                    if (val > 0 && (val & (val - 1)) == 0) {
-                        // val is a power of 2, replace mul with shift-left
-                        // shift-left by log2(val) is equivalent to mul by val
-                        // but we don't have a shift instruction, so keep the
-                        // mul and mark it as strength-reduced for future
-                        // optimization
-                    }
-                }
+            auto c2 = findConstBefore(func, i, b->rs2);
+            std::optional<int> c1;
+            if (op == TACOpcode::ADD || op == TACOpcode::MUL)
+                c1 = findConstBefore(func, i, b->rs1);
+
+            int constVal = 0;
+            TACValue otherReg = b->rs1;
+            if (c2.has_value()) {
+                constVal = *c2;
+                otherReg = b->rs1;
+            } else if (c1.has_value()) {
+                constVal = *c1;
+                otherReg = b->rs2;
+            } else {
+                continue;
             }
-        }
-    }
 
-    for (auto& inst : func.instructions) {
-        auto op = inst->getOpcode();
-        if (op != TACOpcode::MOD) continue;
-
-        auto* b = static_cast<TACBinary*>(inst.get());
-        if (b->rs2.kind == TACValueKind::TEMP) {
-            for (auto& prev : func.instructions) {
-                if (prev.get() == inst.get()) break;
-                if (prev->getOpcode() == TACOpcode::MOVI) {
-                    auto* m = static_cast<TACMovI*>(prev.get());
-                    if (m->rd == b->rs2) {
-                        int val = m->constVal;
-                        if (val > 0 && (val & (val - 1)) == 0) {
-                            // mod by power of 2: can be replaced with AND
-                            // but we don't have AND instruction, skip for now
-                        }
-                    }
+            switch (op) {
+            case TACOpcode::ADD:
+                if (constVal == 0) {
+                    inst = std::make_unique<TACMov>(b->rd, otherReg);
+                    changed = true;
                 }
+                break;
+            case TACOpcode::SUB:
+                if (c2.has_value() && constVal == 0) {
+                    inst = std::make_unique<TACMov>(b->rd, otherReg);
+                    changed = true;
+                }
+                break;
+            case TACOpcode::MUL:
+                if (constVal == 0) {
+                    inst = std::make_unique<TACMovI>(b->rd, 0);
+                    changed = true;
+                } else if (constVal == 1) {
+                    inst = std::make_unique<TACMov>(b->rd, otherReg);
+                    changed = true;
+                }
+                break;
+            case TACOpcode::DIV:
+                if (constVal == 1) {
+                    inst = std::make_unique<TACMov>(b->rd, otherReg);
+                    changed = true;
+                }
+                break;
+            case TACOpcode::MOD:
+                if (constVal == 1) {
+                    inst = std::make_unique<TACMovI>(b->rd, 0);
+                    changed = true;
+                }
+                break;
+            default:
+                break;
             }
         }
     }

@@ -15,17 +15,17 @@ inline void fixJumpTargets(TACFunction& func, const std::vector<int>& oldToNew) 
             auto* j = static_cast<TACJmp*>(inst.get());
             if (j->targetBlock >= 0 && j->targetBlock < static_cast<int>(oldToNew.size())) {
                 int mapped = oldToNew[j->targetBlock];
-                if (mapped >= 0) j->targetBlock = mapped;
+                j->targetBlock = mapped;
             }
         } else if (op == TACOpcode::JIF) {
             auto* j = static_cast<TACJif*>(inst.get());
             if (j->targetBlock >= 0 && j->targetBlock < static_cast<int>(oldToNew.size())) {
                 int mapped = oldToNew[j->targetBlock];
-                if (mapped >= 0) j->targetBlock = mapped;
+                j->targetBlock = mapped;
             }
             if (j->fallBlock >= 0 && j->fallBlock < static_cast<int>(oldToNew.size())) {
                 int mapped = oldToNew[j->fallBlock];
-                if (mapped >= 0) j->fallBlock = mapped;
+                j->fallBlock = mapped;
             }
         }
     }

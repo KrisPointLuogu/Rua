@@ -694,21 +694,14 @@ BytecodeProgram BytecodeGenerator::generateFromTAC(const TACProgram& tac,
             }
             else if (op == TACOpcode::JIF) {
                 auto* j = static_cast<TACJif*>(inst.get());
-                // Emit with placeholder, patch later
-                // For bytecode JIF: if (rs1==0) ip += offset
-                // TAC JIF: if cond==0 goto targetBlock, else goto fallBlock
-                // We need to handle both: target (cond==0) and fall (cond!=0)
-                // Since bytecode JIF only jumps on cond==0, we can directly use targetBlock
-                // For fallBlock, we need to check if fallBlock != ti+1 (i.e., there's a gap)
+                int jifPatch = program.getCodeSize();
+                program.emit(Opcode::JIF, 0, j->cond.index, 0, 0);
+                patches.push_back({jifPatch, j->targetBlock});
                 if (j->fallBlock != ti + 1) {
-                    // Fall-through is not the next instruction, need to emit JMP for fall
                     int jmpPatch = program.getCodeSize();
                     program.emit(Opcode::JMP, 0, 0, 0, 0);
                     patches.push_back({jmpPatch, j->fallBlock});
                 }
-                int jifPatch = program.getCodeSize();
-                program.emit(Opcode::JIF, 0, j->cond.index, 0, 0);
-                patches.push_back({jifPatch, j->targetBlock});
             }
             else if (op == TACOpcode::PUSH) {
                 auto* p = static_cast<TACParm*>(inst.get());
@@ -831,15 +824,14 @@ BytecodeProgram BytecodeGenerator::generateFromTAC(const TACProgram& tac,
             }
             else if (op == TACOpcode::JIF) {
                 auto* j = static_cast<TACJif*>(inst.get());
-                // If fall-through is not the next instruction, emit JMP for the fall path
+                int jifPos = program.getCodeSize();
+                program.emit(Opcode::JIF, 0, j->cond.index, 0, 0);
+                allPatches.push_back({jifPos, j->targetBlock});
                 if (j->fallBlock != ti + 1) {
                     int jmpPos2 = program.getCodeSize();
                     program.emit(Opcode::JMP, 0, 0, 0, 0);
                     allPatches.push_back({jmpPos2, j->fallBlock});
                 }
-                int jifPos = program.getCodeSize();
-                program.emit(Opcode::JIF, 0, j->cond.index, 0, 0);
-                allPatches.push_back({jifPos, j->targetBlock});
             }
             else if (op == TACOpcode::PUSH) {
                 auto* p = static_cast<TACParm*>(inst.get());

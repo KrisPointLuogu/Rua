@@ -166,6 +166,15 @@ public:
     std::unique_ptr<TACInst> clone() const override { return std::make_unique<TACHalt>(); }
 };
 
+// nop
+class TACNop : public TACInst {
+public:
+    TACNop() = default;
+    TACOpcode getOpcode() const override { return TACOpcode::NOP; }
+    int accept(TACVisitor& v) override;
+    std::unique_ptr<TACInst> clone() const override { return std::make_unique<TACNop>(); }
+};
+
 class TACVisitor {
 public:
     virtual ~TACVisitor() = default;
@@ -180,6 +189,7 @@ public:
     virtual int visit(TACPrint& n) = 0;
     virtual int visit(TACRet& n) = 0;
     virtual int visit(TACHalt& n) = 0;
+    virtual int visit(TACNop& n) = 0;
 };
 
 // TACFunction: one function's TAC representation
