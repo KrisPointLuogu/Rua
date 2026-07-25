@@ -22,12 +22,8 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
         if (op == TACOpcode::MOVI) {
             auto* m = static_cast<TACMovI*>(inst.get());
             if (m->rd.kind == TACValueKind::TEMP) {
-                if (!isConst[m->rd.index]
-                    || constVals[m->rd.index] != m->constVal) {
-                    constVals[m->rd.index] = m->constVal;
-                    isConst[m->rd.index] = true;
-                    changed = true;
-                }
+                constVals[m->rd.index] = m->constVal;
+                isConst[m->rd.index] = true;
             }
         } else if (op == TACOpcode::MOV) {
             auto* m = static_cast<TACMov*>(inst.get());
@@ -101,7 +97,8 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
                 changed = true;
             }
         } else {
-            if (op != TACOpcode::JMP && op != TACOpcode::JIF)
+            // 仅 CALL 可能修改返回寄存器 (r0)，其他指令不改变量
+            if (op == TACOpcode::CALL)
                 isConst.assign(256, false);
         }
     }
