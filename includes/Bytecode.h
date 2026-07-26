@@ -5,10 +5,10 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "语义分析.h"
-#include "语法树.h"
+#include "SemanticAnalysis.h"
+#include "AST.h"
 #ifdef OPTIMIZATION
-#include "IR/中间指令.h"
+#include "IR/TACInstructions.h"
 #endif
 
 //

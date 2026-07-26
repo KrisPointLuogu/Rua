@@ -1,5 +1,5 @@
 #include <iostream>
-#include "Optimizer/优化管理器.h"
+#include "Optimizer/PassManager.h"
 
 bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx)
 {
@@ -78,14 +78,11 @@ bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx)
                        || op == TACOpcode::GE) {
                 auto* b = static_cast<TACBinary*>(inst);
                 bool operandsInvariant = true;
-                if (b->rs1.kind == TACValueKind::TEMP
-                    && loopDefs[b->rs1.index])
+                if (b->rs1.kind == TACValueKind::TEMP && loopDefs[b->rs1.index])
                     operandsInvariant = false;
-                if (b->rs2.kind == TACValueKind::TEMP
-                    && loopDefs[b->rs2.index])
+                if (b->rs2.kind == TACValueKind::TEMP && loopDefs[b->rs2.index])
                     operandsInvariant = false;
-                if (operandsInvariant
-                    && b->rd.kind == TACValueKind::TEMP
+                if (operandsInvariant && b->rd.kind == TACValueKind::TEMP
                     && loopWriteCount[b->rd.index] != 1)
                     operandsInvariant = false;
                 isInvariant = operandsInvariant;
@@ -99,8 +96,7 @@ bool LoopInvariantCodeMotion::run(TACProgram& program, int funcIdx)
         int oldSize = static_cast<int>(func.instructions.size());
 
         std::vector<std::unique_ptr<TACInst>> hoisted;
-        for (int i = static_cast<int>(invariantInsts.size()) - 1; i >= 0;
-             i--) {
+        for (int i = static_cast<int>(invariantInsts.size()) - 1; i >= 0; i--) {
             int instIdx = invariantInsts[i];
             hoisted.push_back(std::move(func.instructions[instIdx]));
             func.instructions.erase(func.instructions.begin() + instIdx);

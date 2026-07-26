@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "语法树.h"
+#include "AST.h"
 
 //
 // 语义分析 —— 符号表管理、作用域检查

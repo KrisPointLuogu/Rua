@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <set>
-#include "Optimizer/优化管理器.h"
+#include "Optimizer/PassManager.h"
 
 bool DeadCodeElimination::run(TACProgram& program, int funcIdx)
 {

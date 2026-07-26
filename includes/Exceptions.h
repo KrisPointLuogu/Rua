@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <stdexcept>
 #include <string>
-#include "输出彩色支持.h"
+#include "ColorOutput.h"
 
 using std::runtime_error;
 using std::string;

@@ -8,7 +8,7 @@
  *   4. 循环用指针步进代替索引计算
  */
 
-#include "虚拟机.h"
+#include "VM.h"
 #include <cstring>
 #include <iostream>
 #include <sstream>

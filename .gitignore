@@ -372,4 +372,5 @@ _deps/
 compile_commands.jsonbuild_pgo*/
 
 BUG_FIX
-.clang-format
+.clang-formatbuild_noopt/
+build_opt/

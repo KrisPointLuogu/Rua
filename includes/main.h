@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <string>
 #include "Console.h"
-#include "全局内容.h"
+#include "Globals.h"
 
 #define 窗口名称 "Rua—X.X.X解释器"
 

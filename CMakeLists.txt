@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_C_STANDARD 17)
 
-# ========== 平台检测 ==========
+# ========== Platform Detection ==========
 if(WIN32)
     add_compile_definitions(_WIN)
     set(PLATFORM_SOURCES
@@ -22,26 +22,26 @@ elseif(UNIX)
     )
 endif()
 
-# ========== 编译器标志 ==========
+# ========== Compiler Flags ==========
 if(MSVC)
     add_compile_options(/utf-8 /W3 /O2)
 else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -Wall -march=native -flto")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -Wall -march=native -flto -Wextra")
 endif()
 
-# ========== 优化器选项 ==========
+# ========== Optimizer Options ==========
 option(ENABLE_OPTIMIZATION "Enable TAC IR and optimization passes" OFF)
 
-# ========== 源文件 ==========
+# ========== Source Files ==========
 set(RUA_CORE_SOURCES
     src/main.cpp
     src/REPL.cpp
-    src/UTF32支持.cpp
-    src/词法分析器.cpp
-    src/语法分析器.cpp
-    src/语义分析.cpp
-    src/字节码生成.cpp
-    src/虚拟机.cpp
+    src/UTF32Support.cpp
+    src/Lexer.cpp
+    src/Parser.cpp
+    src/SemanticAnalysis.cpp
+    src/BytecodeGenerator.cpp
+    src/VM.cpp
     src/JIT.cpp
 )
 
@@ -49,18 +49,18 @@ set(RUA_CORE_SOURCES
 if(ENABLE_OPTIMIZATION)
     add_compile_definitions(OPTIMIZATION)
     list(APPEND RUA_CORE_SOURCES
-        src/IR/中间指令.cpp
-        src/IR/基本块.cpp
-        src/IR/控制流图.cpp
-        src/IR/支配树.cpp
-        src/中间生成.cpp
-        src/Optimizer/优化管理器.cpp
-        src/Optimizer/常量传播.cpp
-        src/Optimizer/死代码消除.cpp
-        src/Optimizer/循环不变量外提.cpp
-        src/Optimizer/循环展开.cpp
-        src/Optimizer/函数内联.cpp
-        src/Optimizer/强度削减.cpp
+        src/IR/TACInstructions.cpp
+        src/IR/BasicBlock.cpp
+        src/IR/CFG.cpp
+        src/IR/DominatorTree.cpp
+        src/TACGenerator.cpp
+        src/Optimizer/PassManager.cpp
+        src/Optimizer/ConstantPropagation.cpp
+        src/Optimizer/DCE.cpp
+        src/Optimizer/LICM.cpp
+        src/Optimizer/LoopUnrolling.cpp
+        src/Optimizer/FunctionInlining.cpp
+        src/Optimizer/StrengthReduction.cpp
     )
 endif()
 
@@ -71,7 +71,7 @@ add_executable(Rua
 
 target_include_directories(Rua PRIVATE includes arch)
 
-# ========== 调试宏 ==========
+# ========== Debug Macros ==========
 if(WIN32)
     target_compile_definitions(Rua PRIVATE $<$<CONFIG:Debug>:_DEBUG>)
 else()

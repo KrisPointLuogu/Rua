@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
 #include <vector>
-#include "控制流图.h"
+#include "CFG.h"
 
 class DominatorTree {
 public:

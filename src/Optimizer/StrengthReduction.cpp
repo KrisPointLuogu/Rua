@@ -1,9 +1,10 @@
 #include <iostream>
 #include <optional>
-#include "Optimizer/优化管理器.h"
+#include "Optimizer/PassManager.h"
 
 static std::optional<int> findConstBefore(const TACFunction& func, int pos,
-                                          TACValue target) {
+                                          TACValue target)
+{
     if (target.kind != TACValueKind::TEMP) return std::nullopt;
     for (int i = pos - 1; i >= 0; i--) {
         auto& inst = func.instructions[i];
@@ -43,9 +44,8 @@ bool StrengthReduction::run(TACProgram& program, int funcIdx)
         auto& inst = func.instructions[i];
         auto op = inst->getOpcode();
 
-        if (op == TACOpcode::MUL || op == TACOpcode::DIV
-            || op == TACOpcode::MOD || op == TACOpcode::ADD
-            || op == TACOpcode::SUB) {
+        if (op == TACOpcode::MUL || op == TACOpcode::DIV || op == TACOpcode::MOD
+            || op == TACOpcode::ADD || op == TACOpcode::SUB) {
             auto* b = static_cast<TACBinary*>(inst.get());
 
             auto c2 = findConstBefore(func, i, b->rs2);
@@ -99,8 +99,7 @@ bool StrengthReduction::run(TACProgram& program, int funcIdx)
                     changed = true;
                 }
                 break;
-            default:
-                break;
+            default: break;
             }
         }
     }

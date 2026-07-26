@@ -3,23 +3,23 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include "UTF32支持.h"
-#include "全局内容.h"
-#include "字节码.h"
-#include "虚拟机.h"
-#include "词法分析器.h"
-#include "语义分析.h"
-#include "语法分析器.h"
-#include "输出彩色支持.h"
+#include "UTF32Support.h"
+#include "Globals.h"
+#include "Bytecode.h"
+#include "VM.h"
+#include "Lexer.h"
+#include "SemanticAnalysis.h"
+#include "Parser.h"
+#include "ColorOutput.h"
 #ifdef OPTIMIZATION
-#include "IR/控制流图.h"
+#include "IR/CFG.h"
 #include "JIT.h"
-#include "Optimizer/优化管理器.h"
-#include "中间生成.h"
+#include "Optimizer/PassManager.h"
+#include "TACGenerator.h"
 #endif
 
 #ifdef _DEBUG
-#include "调试输出支持.h"
+#include "DebugOutput.h"
 #endif
 
 using std::string;

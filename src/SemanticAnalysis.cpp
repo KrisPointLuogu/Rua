@@ -11,7 +11,7 @@
  * 同时构建符号表，供字节码生成阶段使用。
  */
 
-#include "语义分析.h"
+#include "SemanticAnalysis.h"
 #include <sstream>
 
 using std::make_unique;

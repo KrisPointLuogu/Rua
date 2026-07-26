@@ -25,9 +25,9 @@
  *                | "喵叫" "(" [args] ")"
  */
 
-#include "语法分析器.h"
+#include "Parser.h"
 #include <sstream>
-#include "UTF32支持.h"
+#include "UTF32Support.h"
 
 using std::make_unique;
 using std::string;

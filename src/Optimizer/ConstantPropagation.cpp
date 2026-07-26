@@ -2,7 +2,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <vector>
-#include "Optimizer/优化管理器.h"
+#include "Optimizer/PassManager.h"
 
 bool ConstantPropagation::run(TACProgram& program, int funcIdx)
 {
@@ -14,19 +14,21 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
 
     // Detect loop body ranges via backward jumps.
     // Any instruction in [target, jumpIdx] is inside a loop body.
-    struct LoopRange { int start, end; };
+    struct LoopRange {
+        int start, end;
+    };
     std::vector<LoopRange> loops;
     for (int i = 0; i < static_cast<int>(func.instructions.size()); i++) {
         auto op = func.instructions[i]->getOpcode();
         int target = -1;
         if (op == TACOpcode::JMP) {
-            target = static_cast<TACJmp*>(func.instructions[i].get())->targetBlock;
+            target
+                = static_cast<TACJmp*>(func.instructions[i].get())->targetBlock;
         } else if (op == TACOpcode::JIF) {
-            target = static_cast<TACJif*>(func.instructions[i].get())->targetBlock;
+            target
+                = static_cast<TACJif*>(func.instructions[i].get())->targetBlock;
         }
-        if (target >= 0 && target < i) {
-            loops.push_back({target, i});
-        }
+        if (target >= 0 && target < i) { loops.push_back({ target, i }); }
     }
 
     auto isInLoop = [&](int idx) -> bool {
@@ -41,9 +43,7 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
     std::unordered_map<int, int> regConstVals;
     std::unordered_map<int, bool> regIsConst;
 
-    auto clearConst = [&](int regIdx) {
-        regIsConst[regIdx] = false;
-    };
+    auto clearConst = [&](int regIdx) { regIsConst[regIdx] = false; };
 
     auto setConst = [&](int regIdx, int val) {
         regConstVals[regIdx] = val;
@@ -55,9 +55,7 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
         return it != regIsConst.end() && it->second;
     };
 
-    auto getConst = [&](int regIdx) -> int {
-        return regConstVals[regIdx];
-    };
+    auto getConst = [&](int regIdx) -> int { return regConstVals[regIdx]; };
 
     for (int i = 0; i < static_cast<int>(func.instructions.size()); i++) {
         auto& inst = func.instructions[i];

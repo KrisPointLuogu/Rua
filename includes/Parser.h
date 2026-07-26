@@ -3,11 +3,11 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include "UTF32支持.h"
-#include "语法树.h"
+#include "UTF32Support.h"
+#include "AST.h"
 
 // 从词法分析器引用令牌类型
-#include "词法分析器.h"
+#include "Lexer.h"
 using 令牌类型 = int;
 using 令牌 = 词法分析器类::令牌;
 

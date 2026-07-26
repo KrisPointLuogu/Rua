@@ -1,13 +1,13 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
-#include "词法分析器.h"
+#include "Lexer.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "UTF32支持.h"
-#include "信息上报.h"
+#include "UTF32Support.h"
+#include "Reporting.h"
 
 #ifdef _DEBUG
-#include "调试输出支持.h"
+#include "DebugOutput.h"
 #endif
 
 using std::string;

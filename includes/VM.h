@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include "字节码.h"
+#include "Bytecode.h"
 
 //
 // 寄存器式虚拟机 —— 执行 Rua 寄存器字节码

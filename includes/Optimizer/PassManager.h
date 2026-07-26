@@ -1,7 +1,7 @@
 #pragma once
-#include "IR/中间指令.h"
-#include "IR/控制流图.h"
-#include "IR/支配树.h"
+#include "IR/TACInstructions.h"
+#include "IR/CFG.h"
+#include "IR/DominatorTree.h"
 #include <algorithm>
 #include <iostream>
 #include <numeric>

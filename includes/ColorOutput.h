@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <string>
 #include <unordered_map>
-#include "全局内容.h"
+#include "Globals.h"
 
 using std::string;
 using std::unordered_map;

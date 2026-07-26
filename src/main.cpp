@@ -1,7 +1,7 @@
 ﻿#include "main.h"
 #include "REPL.h"
-#include "全局内容.h"
-#include "平台检测.h"
+#include "Globals.h"
+#include "Platform.h"
 
 全局 全局内容;
 

@@ -1,6 +1,6 @@
-﻿#include "UTF32支持.h"
+﻿#include "UTF32Support.h"
 #include <string>
-#include "信息上报.h"
+#include "Reporting.h"
 
 using std::string;
 using std::u32string;

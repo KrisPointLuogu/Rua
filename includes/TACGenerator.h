@@ -1,7 +1,7 @@
 #pragma once
-#include "IR/中间指令.h"
-#include "语义分析.h"
-#include "语法树.h"
+#include "IR/TACInstructions.h"
+#include "SemanticAnalysis.h"
+#include "AST.h"
 
 class TACGenerator : public ASTVisitor {
 public:

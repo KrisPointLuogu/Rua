@@ -1,4 +1,4 @@
-#include "中间生成.h"
+#include "TACGenerator.h"
 #include <iostream>
 
 namespace {
