@@ -114,14 +114,25 @@ dispatch_switch:
     switch (code[ip]) {
 #endif
 
+// MSVC 的 switch 分派需要 case 标签；GCC/Clang 走 computed goto，无需 case
+// （switch 按 int 提升，故 case 需 static_cast<int>）
+#if defined(__GNUC__) || defined(__clang__)
+#define OP_CASE(x)
+#else
+#define OP_CASE(x) case static_cast<int>(Opcode::x):
+#endif
+
+OP_CASE(HALT)
 op_halt:
     goto op_halt_end;
+OP_CASE(MOVI)
 op_movi: {
     int rd = code[ip + 1], ci = I32(ip + 4);
     base[rd] = Value(constants[ci]);
     ip += 8;
     NEXT();
 }
+OP_CASE(MOVS)
 op_movs: {
     int rd = code[ip + 1], si = I32(ip + 4);
     strPool.push_back(strings[si]);
@@ -129,12 +140,14 @@ op_movs: {
     ip += 8;
     NEXT();
 }
+OP_CASE(MOV)
 op_mov: {
     int rd = code[ip + 1], rs = code[ip + 2];
     base[rd] = base[rs];
     ip += 8;
     NEXT();
 }
+OP_CASE(ADD)
 op_add: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     Value &b = base[rs1], &c = base[rs2];
@@ -148,18 +161,21 @@ op_add: {
     ip += 8;
     NEXT();
 }
+OP_CASE(SUB)
 op_sub: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     base[rd] = Value(base[rs1].data - base[rs2].data);
     ip += 8;
     NEXT();
 }
+OP_CASE(MUL)
 op_mul: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     base[rd] = Value(base[rs1].data * base[rs2].data);
     ip += 8;
     NEXT();
 }
+OP_CASE(DIV)
 op_div: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     int c = base[rs2].data;
@@ -168,6 +184,7 @@ op_div: {
     ip += 8;
     NEXT();
 }
+OP_CASE(MOD)
 op_mod: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     int c = base[rs2].data;
@@ -176,6 +193,7 @@ op_mod: {
     ip += 8;
     NEXT();
 }
+OP_CASE(EQ)
 op_eq: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     Value &b = base[rs1], &c = base[rs2];
@@ -183,6 +201,7 @@ op_eq: {
     ip += 8;
     NEXT();
 }
+OP_CASE(NE)
 op_ne: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     Value &b = base[rs1], &c = base[rs2];
@@ -190,30 +209,35 @@ op_ne: {
     ip += 8;
     NEXT();
 }
+OP_CASE(LT)
 op_lt: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     base[rd] = Value(base[rs1].data < base[rs2].data ? 1 : 0);
     ip += 8;
     NEXT();
 }
+OP_CASE(GT)
 op_gt: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     base[rd] = Value(base[rs1].data > base[rs2].data ? 1 : 0);
     ip += 8;
     NEXT();
 }
+OP_CASE(LE)
 op_le: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     base[rd] = Value(base[rs1].data <= base[rs2].data ? 1 : 0);
     ip += 8;
     NEXT();
 }
+OP_CASE(GE)
 op_ge: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     base[rd] = Value(base[rs1].data >= base[rs2].data ? 1 : 0);
     ip += 8;
     NEXT();
 }
+OP_CASE(ARRNEW)
 op_arrnew: {
     int rd = code[ip + 1], rsSize = code[ip + 2], rsInit = code[ip + 3];
     int size = base[rsSize].data;
@@ -223,6 +247,7 @@ op_arrnew: {
     ip += 8;
     NEXT();
 }
+OP_CASE(ARRGET)
 op_arrget: {
     int rd = code[ip + 1], rsArr = code[ip + 2], rsIdx = code[ip + 3];
     Value& h = base[rsArr];
@@ -235,6 +260,7 @@ op_arrget: {
     ip += 8;
     NEXT();
 }
+OP_CASE(ARRSET)
 op_arrset: {
     int rsVal = code[ip + 1], rsArr = code[ip + 2], rsIdx = code[ip + 3];
     Value& h = base[rsArr];
@@ -247,22 +273,26 @@ op_arrset: {
     ip += 8;
     NEXT();
 }
+OP_CASE(JMP)
 op_jmp: {
     int offset = I32(ip + 4);
     ip += 8 + offset;
     NEXT();
 }
+OP_CASE(JIF)
 op_jif: {
     int rs1 = code[ip + 2], offset = I32(ip + 4);
     ip += (base[rs1].data == 0) ? (8 + offset) : 8;
     NEXT();
 }
+OP_CASE(PUSH)
 op_push: {
     int rs1 = code[ip + 2];
     s[++_sp] = base[rs1];
     ip += 8;
     NEXT();
 }
+OP_CASE(CALL)
 op_call: {
     int funcIdx = I32(ip + 4);
 
@@ -297,6 +327,7 @@ op_call: {
     ip = fnCO[funcIdx];
     NEXT();
 }
+OP_CASE(RET)
 op_ret: {
     Value retVal = base[0];
     _sp = _fp - 1;
@@ -307,6 +338,7 @@ op_ret: {
     ip = cs[_cp--];
     NEXT();
 }
+OP_CASE(PRINT)
 op_print: {
     int rs1 = code[ip + 2];
     Value& v = base[rs1];
@@ -341,3 +373,4 @@ fpStack = _fs;
 
 #undef I32
 #undef NEXT
+#undef OP_CASE

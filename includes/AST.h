@@ -176,7 +176,8 @@ class CallExpr : public ASTNode {
 
 class IndexExpr : public ASTNode {
   public:
-    std::string arrayName;
+    // 被索引的基表达式：数组变量或嵌套索引（支持 a[i][j] 连缀索引）
+    std::unique_ptr<ASTNode> base;
     std::unique_ptr<ASTNode> index;
     NodeType getType() const override { return NodeType::INDEX_EXPR; }
     int accept(ASTVisitor& visitor) override { return visitor.visit(*this); }

@@ -272,16 +272,11 @@ int SemanticAnalyzer::visit(Identifier& node)
 
 int SemanticAnalyzer::visit(IndexExpr& node)
 {
-    Symbol* sym = symbolTable.lookup(node.arrayName);
-    if (!sym) {
-        std::ostringstream oss;
-        oss << "第 " << node.line << " 行：未声明的变量 '" << node.arrayName
-            << "'";
-        throw SemanticError(oss.str());
-    }
+    // 基表达式可以是数组变量或嵌套索引（a[i][j]），递归校验其合法性
+    node.base->accept(*this);
 
-    // 数组参数可持有数组句柄（引用语义），故这里只检查变量已声明；
-    // 非数组变量被索引的运行时检查由 ARRGET/ARRSET 指令兜底（见 WAIT_FOR.md）
+    // 数组参数可持有数组句柄（引用语义），故这里只检查基表达式合法；
+    // 非数组值被索引的运行时检查由 ARRGET/ARRSET 指令兜底（见 WAIT_FOR.md）
     if (node.index) { node.index->accept(*this); }
     return 0;
 }

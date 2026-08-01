@@ -497,12 +497,7 @@ int BytecodeGenerator::visit(BinaryExpr& node)
     // 赋值
     if (node.op == TK_等号) {
         if (auto* idx = dynamic_cast<IndexExpr*>(node.left.get())) {
-            int arrReg = lookupReg(idx->arrayName);
-            if (arrReg < 0) {
-                std::cerr << "内部错误：未找到数组 '" << idx->arrayName
-                          << "' 的寄存器" << std::endl;
-                return 0;
-            }
+            int arrReg = idx->base->accept(*this);
             int idxReg = idx->index->accept(*this);
             int valReg = node.right->accept(*this);
             program.emit(Opcode::ARRSET, valReg, arrReg, idxReg);
@@ -648,15 +643,8 @@ int BytecodeGenerator::visit(Identifier& node)
 
 int BytecodeGenerator::visit(IndexExpr& node)
 {
-    int arrReg = lookupReg(node.arrayName);
-    if (arrReg < 0) {
-        std::cerr << "内部错误：未找到数组 '" << node.arrayName << "'"
-                  << std::endl;
-        int rd = allocTemp();
-        program.emit(Opcode::MOVI, rd, 0, 0, program.addConstant(0));
-        return rd;
-    }
-
+    // 基表达式求值：数组变量取其寄存器，嵌套索引取其 ARRGET 结果（数组句柄）
+    int arrReg = node.base->accept(*this);
     int idxReg = node.index->accept(*this);
     int resultReg = allocTemp();
     program.emit(Opcode::ARRGET, resultReg, arrReg, idxReg);

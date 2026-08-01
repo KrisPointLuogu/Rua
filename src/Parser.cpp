@@ -221,7 +221,7 @@ unique_ptr<ArrayDecl> Parser::parseArrayDecl()
     consume(TK::左中括号, "数组名后需要 '['");
 
     const 令牌& sizeToken = consume(TK::数字, "数组长度需要是数字");
-    arrDecl->size = std::stoi(u32to8(sizeToken.内容_));
+    arrDecl->size = 解析整数(sizeToken);
 
     consume(TK::右中括号, "数组长度后需要 ']'");
 
@@ -406,7 +406,7 @@ unique_ptr<ASTNode> Parser::parsePrimary()
         auto num = make_unique<NumberLiteral>();
         num->line = previous().行位置_;
         num->column = previous().列位置_;
-        num->value = std::stoi(u32to8(previous().内容_));
+        num->value = 解析整数(previous());
         return num;
     }
 
@@ -423,16 +423,23 @@ unique_ptr<ASTNode> Parser::parsePrimary()
         int line = previous().行位置_;
         int column = previous().列位置_;
 
-        if (match(TK::左括号)) { return parseCall(name, line, column); }
+        if (match(TK::左括号)) {
+            return parseIndexChain(parseCall(name, line, column));
+        }
 
         if (match(TK::左中括号)) {
+            auto base = make_unique<Identifier>();
+            base->line = line;
+            base->column = column;
+            base->name = name;
+
             auto index = make_unique<IndexExpr>();
             index->line = line;
             index->column = column;
-            index->arrayName = name;
+            index->base = std::move(base);
             index->index = parseExpression();
             consume(TK::右中括号, "数组索引表达式后需要 ']'");
-            return index;
+            return parseIndexChain(std::move(index));
         }
 
         auto id = make_unique<Identifier>();
@@ -448,13 +455,13 @@ unique_ptr<ASTNode> Parser::parsePrimary()
         int line = previous().行位置_;
         int column = previous().列位置_;
         consume(TK::左括号, "'" + name + "' 后需要 '('");
-        return parseCall(name, line, column);
+        return parseIndexChain(parseCall(name, line, column));
     }
 
     if (match(TK::左括号)) {
         auto expr = parseExpression();
         consume(TK::右括号, "括号表达式需要 ')'");
-        return expr;
+        return parseIndexChain(std::move(expr));
     }
 
     throw error(peek(), "期望表达式（数字、字符串、标识符或括号表达式）");
@@ -476,6 +483,21 @@ unique_ptr<CallExpr> Parser::parseCall(const string& callee, int line,
     consume(TK::右括号, "函数调用参数后需要 ')'");
 
     return call;
+}
+
+unique_ptr<ASTNode> Parser::parseIndexChain(unique_ptr<ASTNode> base)
+{
+    while (match(TK::左中括号)) {
+        auto index = make_unique<IndexExpr>();
+        index->line = previous().行位置_;
+        index->column = previous().列位置_;
+        index->base = std::move(base);
+        index->index = parseExpression();
+        consume(TK::右中括号, "数组索引表达式后需要 ']'");
+        base = std::move(index);
+    }
+
+    return base;
 }
 
 // ==================== 工具方法 ====================
@@ -531,4 +553,13 @@ ParserError Parser::error(const 令牌& tok, const string& msg)
     oss << "语法错误，第 " << tok.行位置_ << " 行，第 " << tok.列位置_
         << " 列：" << msg << "，但遇到了 \"" << u32to8(tok.内容_) << "\"";
     return ParserError(oss.str());
+}
+
+int Parser::解析整数(const 令牌& tok)
+{
+    try {
+        return std::stoi(u32to8(tok.内容_));
+    } catch (const std::out_of_range&) {
+        throw error(tok, "数字超出整数范围");
+    }
 }

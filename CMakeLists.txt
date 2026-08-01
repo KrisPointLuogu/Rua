@@ -13,12 +13,16 @@ if(WIN32)
     set(PLATFORM_SOURCES
         arch/JITPlatform_windows.cpp
         arch/Console_windows.cpp
+        arch/FileSystem_windows.cpp
+        arch/CommandLine_windows.cpp
     )
 elseif(UNIX)
     add_compile_definitions(_LINUX)
     set(PLATFORM_SOURCES
         arch/JITPlatform_linux.cpp
         arch/Console_linux.cpp
+        arch/FileSystem_linux.cpp
+        arch/CommandLine_linux.cpp
     )
 endif()
 
@@ -70,6 +74,12 @@ add_executable(Rua
 )
 
 target_include_directories(Rua PRIVATE includes arch)
+
+# ========== Platform Libraries ==========
+if(WIN32)
+    # CommandLineToArgvW 位于 shell32
+    target_link_libraries(Rua PRIVATE shell32)
+endif()
 
 # ========== Debug Macros ==========
 if(WIN32)

@@ -1,8 +1,8 @@
 ﻿#include "REPL.h"
-#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include "FileSystem.h"
 #include "UTF32Support.h"
 #include "Globals.h"
 #include "Bytecode.h"
@@ -114,14 +114,11 @@ void 编译并运行(const string& 源码)
 
 void 运行文件(const string& 路径)
 {
-    std::ifstream 文件(路径);
-    if (!文件.is_open()) {
+    string 源码;
+    if (!arch::readFile(路径, 源码)) {
         输出文本("错误：无法打开文件 '" + 路径 + "'", "RR");
         return;
     }
-    std::stringstream 缓冲区;
-    缓冲区 << 文件.rdbuf();
-    string 源码 = 缓冲区.str();
 
     输出文本("正在编译 " + 路径 + " ...", "青");
     编译并运行(源码);

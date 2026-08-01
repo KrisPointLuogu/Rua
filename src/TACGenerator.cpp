@@ -341,15 +341,11 @@ int TACGenerator::visit(ExprStmt& node) {
 int TACGenerator::visit(BinaryExpr& node) {
     if (node.op == TK_等号) {
         if (auto* idx = dynamic_cast<IndexExpr*>(node.left.get())) {
-            int arrReg = lookupReg(idx->arrayName);
-            if (arrReg < 0) {
-                std::cerr << "TAC error: undefined array " << idx->arrayName << std::endl;
-                return 0;
-            }
+            int arrReg = idx->base->accept(*this);
             int idxReg = idx->index->accept(*this);
             int valReg = node.right->accept(*this);
             emitArraySet(TACValue(TACValueKind::TEMP, valReg),
-                         TACValue(TACValueKind::VAR, arrReg),
+                         TACValue(TACValueKind::TEMP, arrReg),
                          TACValue(TACValueKind::TEMP, idxReg));
             int resultReg = allocTemp();
             emitMov(TACValue(TACValueKind::TEMP, resultReg),
@@ -464,17 +460,12 @@ int TACGenerator::visit(Identifier& node) {
 }
 
 int TACGenerator::visit(IndexExpr& node) {
-    int arrReg = lookupReg(node.arrayName);
-    if (arrReg < 0) {
-        std::cerr << "TAC error: undefined array " << node.arrayName << std::endl;
-        int rd = allocTemp();
-        emitMovI(TACValue(TACValueKind::TEMP, rd), 0);
-        return rd;
-    }
+    // 基表达式求值：数组变量取其寄存器，嵌套索引取其 ARRGET 结果（数组句柄）
+    int arrReg = node.base->accept(*this);
     int idxReg = node.index->accept(*this);
     int resultReg = allocTemp();
     emitArrayGet(TACValue(TACValueKind::TEMP, resultReg),
-                 TACValue(TACValueKind::VAR, arrReg),
+                 TACValue(TACValueKind::TEMP, arrReg),
                  TACValue(TACValueKind::TEMP, idxReg));
     return resultReg;
 }

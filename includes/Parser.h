@@ -86,6 +86,11 @@ class Parser {
     std::unique_ptr<ASTNode> parsePrimary();
     std::unique_ptr<CallExpr> parseCall(const std::string& callee, int line,
                                         int column);
+    // 连缀索引后缀：将基表达式包装为 a[i][j][k] 形式的嵌套 IndexExpr
+    std::unique_ptr<ASTNode> parseIndexChain(std::unique_ptr<ASTNode> base);
+
+    // 将数字令牌解析为整数，溢出时给出中文错误
+    int 解析整数(const 令牌& tok);
 
     // UTF-32 → UTF-8 辅助
     static std::string u32to8(const std::u32string& u32);
