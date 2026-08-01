@@ -159,6 +159,15 @@ void JITCompiler::emitMOVtoStack(int32_t offset, uint8_t src)
         emit32(offset);
 }
 
+void JITCompiler::emitMOVfromRSP(uint8_t dst, int8_t offset)
+{
+    // mov dst, [rsp + offset]: 48 8B 44 24 disp8（RSP 为基址需 SIB）
+    emitREX(1, (dst & 8), 0, 0);
+    emit8(0x8B);
+    emitModRMSIB(1, dst & 7, RSP, 4, 0); // index=4 表示无索引
+    emit8(offset);
+}
+
 void JITCompiler::emitADD(uint8_t dst, uint8_t src)
 {
     // add dst, src: 48 03 /r  (dst ← dst + src, r64 ← r/m64)
@@ -385,25 +394,70 @@ void JITCompiler::emitJumpToLabel(size_t label)
 
 bool JITCompiler::canJIT(const FunctionInfo& func, const BytecodeProgram& prog)
 {
-    // 跳过含 MOVS 的函数（当前 JIT 不支持字符串加载）
-    int end = prog.getCodeSize();
-    for (size_t i = 0; i < prog.functions.size(); i++) {
-        if (prog.functions[i].codeOffset == func.codeOffset) {
-            if (i + 1 < prog.functions.size())
-                end = prog.functions[i + 1].codeOffset;
-            break;
+    const auto& funcs = prog.functions;
+    int myIndex = -1;
+    for (size_t i = 0; i < funcs.size(); i++)
+        if (funcs[i].codeOffset == func.codeOffset) { myIndex = (int)i; break; }
+
+    // 基础判定：无字符串/数组/除模指令，参数不超 6 个
+    auto 基础可JIT = [&](int idx) {
+        const auto& f = funcs[idx];
+        if (f.paramCount > 6) return false;
+        int end = prog.getCodeSize();
+        for (size_t k = idx + 1; k < funcs.size(); k++) {
+            if (funcs[k].codeOffset > f.codeOffset) {
+                end = funcs[k].codeOffset;
+                break;
+            }
+        }
+        for (int pc = f.codeOffset; pc < end; pc += 8) {
+            Opcode op = (Opcode)prog.code[pc];
+            if (op == Opcode::MOVS) return false;
+            if (op == Opcode::DIV || op == Opcode::MOD) return false;
+            if (op == Opcode::ARRNEW || op == Opcode::ARRGET
+                || op == Opcode::ARRSET)
+                return false;
+        }
+        return true;
+    };
+
+    // 提取每个函数的被调用者列表
+    vector<vector<int>> callees(funcs.size());
+    for (size_t i = 0; i < funcs.size(); i++) {
+        int end = prog.getCodeSize();
+        for (size_t k = i + 1; k < funcs.size(); k++) {
+            if (funcs[k].codeOffset > funcs[i].codeOffset) {
+                end = funcs[k].codeOffset;
+                break;
+            }
+        }
+        for (int pc = funcs[i].codeOffset; pc < end; pc += 8) {
+            if ((Opcode)prog.code[pc] == Opcode::CALL) {
+                int idx;
+                memcpy(&idx, &prog.code[pc + 4], 4);
+                callees[i].push_back(idx);
+            }
         }
     }
 
-    for (int pc = func.codeOffset; pc < end; pc += 8) {
-        Opcode op = (Opcode)prog.code[pc];
-        if (op == Opcode::MOVS) return false;
-        if (op == Opcode::DIV || op == Opcode::MOD) return false;
-        if (op == Opcode::ARRNEW || op == Opcode::ARRGET
-            || op == Opcode::ARRSET)
-            return false;
+    // 自底向上闭包：某函数不可 JIT 时，所有（间接）调用它的函数也不可 JIT
+    vector<bool> ok(funcs.size(), false);
+    for (size_t i = 0; i < funcs.size(); i++) ok[i] = 基础可JIT((int)i);
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (size_t i = 0; i < funcs.size(); i++) {
+            if (!ok[i]) continue;
+            for (int c : callees[i]) {
+                if (c >= 0 && c < (int)funcs.size() && !ok[c]) {
+                    ok[i] = false;
+                    changed = true;
+                    break;
+                }
+            }
+        }
     }
-    return true;
+    return myIndex >= 0 && ok[myIndex];
 }
 
 JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
@@ -1129,20 +1183,23 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
                 if (preg >= 0) {
                     if (preg == argRegs[i]) {
                         // 源和目标相同，不需要拷贝
+                    } else if (preg == RDI || preg == RSI || preg == RDX
+                               || preg == RCX || preg == R8 || preg == R9) {
+                        // 源是参数寄存器之一：上文已把全部 caller-saved
+                        // 寄存器 push 到栈上保存原始值，从保存槽读取，
+                        // 避免先前参数装载（如 mov rsi,r13）覆盖了它
+                        // （装载循环只写 RDI/RSI/RDX/RCX/R8/R9）
+                        // push 顺序: R11,R10,R9,R8,RCX,RDX,RDI,RSI
+                        // → 最后一个 push 落在 [rsp+0]，按寄存器编号的
+                        //   RSP 相对偏移:
+                        //   RCX=24 RDX=16 RSI=0 RDI=8 R8=32 R9=40
+                        //   R10=48 R11=56
+                        static const int8_t savedOff[]
+                            = { 0,  24, 16, 0,  0,  0,  0,  8,
+                                32, 40, 48, 56, 0,  0 };
+                        emitMOVfromRSP(argRegs[i], savedOff[preg]);
                     } else {
-                        bool conflict = false;
-                        for (int j = i + 1; j < pCnt && j < 6; j++) {
-                            if (preg == argRegs[j]) {
-                                conflict = true;
-                                break;
-                            }
-                        }
-                        if (conflict) {
-                            emitMOV(R10, preg);
-                            emitMOV(argRegs[i], R10);
-                        } else {
-                            emitMOV(argRegs[i], preg);
-                        }
+                        emitMOV(argRegs[i], preg);
                     }
                 } else {
                     emitMOVfromStack(argRegs[i], spillBase - (vreg - 14) * 8);

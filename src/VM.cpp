@@ -151,12 +151,14 @@ OP_CASE(ADD)
 op_add: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     Value &b = base[rs1], &c = base[rs2];
-    if (b.type == ValueType::INTEGER)
+    if (b.type == ValueType::INTEGER && c.type == ValueType::INTEGER)
         base[rd] = Value(b.data + c.data);
-    else {
+    else if (b.type == ValueType::STRING && c.type == ValueType::STRING) {
         strPool.push_back(strPool[b.data] + strPool[c.data]);
         base[rd]
             = Value(static_cast<int>(strPool.size()) - 1, ValueType::STRING);
+    } else {
+        throw VMError("加法操作数类型不匹配");
     }
     ip += 8;
     NEXT();
@@ -197,7 +199,14 @@ OP_CASE(EQ)
 op_eq: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     Value &b = base[rs1], &c = base[rs2];
-    base[rd] = Value((b.type == c.type) & (b.data == c.data) ? 1 : 0);
+    bool 相等;
+    if (b.type != c.type)
+        相等 = false;
+    else if (b.type == ValueType::STRING)
+        相等 = strPool[b.data] == strPool[c.data];
+    else
+        相等 = b.data == c.data;
+    base[rd] = Value(相等 ? 1 : 0);
     ip += 8;
     NEXT();
 }
@@ -205,7 +214,14 @@ OP_CASE(NE)
 op_ne: {
     int rd = code[ip + 1], rs1 = code[ip + 2], rs2 = code[ip + 3];
     Value &b = base[rs1], &c = base[rs2];
-    base[rd] = Value((b.type != c.type) | (b.data != c.data) ? 1 : 0);
+    bool 相等;
+    if (b.type != c.type)
+        相等 = false;
+    else if (b.type == ValueType::STRING)
+        相等 = strPool[b.data] == strPool[c.data];
+    else
+        相等 = b.data == c.data;
+    base[rd] = Value(相等 ? 0 : 1);
     ip += 8;
     NEXT();
 }
