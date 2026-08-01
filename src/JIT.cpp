@@ -530,8 +530,8 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
 
     // 计算需要保存的 callee-saved 寄存器
     bool needRBX = (func.paramCount >= 1), needR12 = (func.paramCount >= 2),
-         needR13 = (func.paramCount >= 3);
-    bool needR14 = false, needR15 = false;
+         needR13 = (func.paramCount >= 3),
+         needR14 = (func.paramCount >= 4), needR15 = (func.paramCount >= 5);
     for (int pc = func.codeOffset; pc < endOff; pc += 8) {
         uint8_t rd = code[pc + 1], rs1 = code[pc + 2], rs2 = code[pc + 3];
         int p = vregToPhys(rd);
