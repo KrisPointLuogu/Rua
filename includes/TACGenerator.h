@@ -12,12 +12,14 @@ public:
     int visit(Function& node) override;
     int visit(Block& node) override;
     int visit(VarDecl& node) override;
+    int visit(ArrayDecl& node) override;
     int visit(IfStmt& node) override;
     int visit(WhileStmt& node) override;
     int visit(ReturnStmt& node) override;
     int visit(ExprStmt& node) override;
     int visit(BinaryExpr& node) override;
     int visit(CallExpr& node) override;
+    int visit(IndexExpr& node) override;
     int visit(NumberLiteral& node) override;
     int visit(StringLiteral& node) override;
     int visit(Identifier& node) override;
@@ -55,6 +57,9 @@ private:
     void emitParm(TACValue rs);
     void emitCall(TACValue rd, int funcIdx, const std::string& funcName, int argCount);
     void emitPrint(TACValue rs);
+    void emitArrayNew(TACValue rd, TACValue size, TACValue init);
+    void emitArrayGet(TACValue rd, TACValue arr, TACValue idx);
+    void emitArraySet(TACValue val, TACValue arr, TACValue idx);
     void emitRet(TACValue rs);
     void emitHalt();
     void emitNop();

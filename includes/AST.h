@@ -15,12 +15,14 @@ class Program;
 class Function;
 class Block;
 class VarDecl;
+class ArrayDecl;
 class IfStmt;
 class WhileStmt;
 class ReturnStmt;
 class ExprStmt;
 class BinaryExpr;
 class CallExpr;
+class IndexExpr;
 class NumberLiteral;
 class StringLiteral;
 class Identifier;
@@ -35,12 +37,14 @@ class ASTVisitor {
     virtual int visit(Function& node) = 0;
     virtual int visit(Block& node) = 0;
     virtual int visit(VarDecl& node) = 0;
+    virtual int visit(ArrayDecl& node) = 0;
     virtual int visit(IfStmt& node) = 0;
     virtual int visit(WhileStmt& node) = 0;
     virtual int visit(ReturnStmt& node) = 0;
     virtual int visit(ExprStmt& node) = 0;
     virtual int visit(BinaryExpr& node) = 0;
     virtual int visit(CallExpr& node) = 0;
+    virtual int visit(IndexExpr& node) = 0;
     virtual int visit(NumberLiteral& node) = 0;
     virtual int visit(StringLiteral& node) = 0;
     virtual int visit(Identifier& node) = 0;
@@ -54,12 +58,14 @@ enum class NodeType {
     FUNCTION,
     BLOCK,
     VAR_DECL,
+    ARRAY_DECL,
     IF_STMT,
     WHILE_STMT,
     RETURN_STMT,
     EXPR_STMT,
     BINARY_EXPR,
     CALL_EXPR,
+    INDEX_EXPR,
     NUMBER_LITERAL,
     STRING_LITERAL,
     IDENTIFIER
@@ -111,6 +117,15 @@ class VarDecl : public ASTNode {
     int accept(ASTVisitor& visitor) override { return visitor.visit(*this); }
 };
 
+class ArrayDecl : public ASTNode {
+  public:
+    std::string name;
+    int size;
+    std::unique_ptr<ASTNode> initialValue;
+    NodeType getType() const override { return NodeType::ARRAY_DECL; }
+    int accept(ASTVisitor& visitor) override { return visitor.visit(*this); }
+};
+
 class IfStmt : public ASTNode {
   public:
     std::unique_ptr<ASTNode> condition;
@@ -156,6 +171,14 @@ class CallExpr : public ASTNode {
     std::string callee;
     std::vector<std::unique_ptr<ASTNode>> args;
     NodeType getType() const override { return NodeType::CALL_EXPR; }
+    int accept(ASTVisitor& visitor) override { return visitor.visit(*this); }
+};
+
+class IndexExpr : public ASTNode {
+  public:
+    std::string arrayName;
+    std::unique_ptr<ASTNode> index;
+    NodeType getType() const override { return NodeType::INDEX_EXPR; }
     int accept(ASTVisitor& visitor) override { return visitor.visit(*this); }
 };
 

@@ -37,7 +37,7 @@ void SymbolTable::exitScope()
     if (scopes.size() > 1) scopes.pop_back();
 }
 
-void SymbolTable::declareVariable(const string& name, int line)
+void SymbolTable::declareVariable(const string& name, int line, bool isArray)
 {
     auto& currentScope = scopes.back();
     if (currentScope.count(name)) {
@@ -52,6 +52,7 @@ void SymbolTable::declareVariable(const string& name, int line)
     sym.kind = SymbolKind::VARIABLE;
     sym.line = line;
     sym.slotIndex = static_cast<int>(currentScope.size());
+    sym.isArray = isArray;
     currentScope[name] = sym;
 }
 
@@ -177,6 +178,21 @@ int SemanticAnalyzer::visit(VarDecl& node)
     return 0;
 }
 
+int SemanticAnalyzer::visit(ArrayDecl& node)
+{
+    if (node.size <= 0) {
+        std::ostringstream oss;
+        oss << "第 " << node.line << " 行：数组 '" << node.name
+            << "' 的长度必须为正数";
+        throw SemanticError(oss.str());
+    }
+
+    symbolTable.declareVariable(node.name, node.line, true);
+
+    if (node.initialValue) { node.initialValue->accept(*this); }
+    return 0;
+}
+
 int SemanticAnalyzer::visit(IfStmt& node)
 {
     node.condition->accept(*this);
@@ -251,5 +267,21 @@ int SemanticAnalyzer::visit(Identifier& node)
         oss << "第 " << node.line << " 行：未声明的变量 '" << node.name << "'";
         throw SemanticError(oss.str());
     }
+    return 0;
+}
+
+int SemanticAnalyzer::visit(IndexExpr& node)
+{
+    Symbol* sym = symbolTable.lookup(node.arrayName);
+    if (!sym) {
+        std::ostringstream oss;
+        oss << "第 " << node.line << " 行：未声明的变量 '" << node.arrayName
+            << "'";
+        throw SemanticError(oss.str());
+    }
+
+    // 数组参数可持有数组句柄（引用语义），故这里只检查变量已声明；
+    // 非数组变量被索引的运行时检查由 ARRGET/ARRSET 指令兜底（见 WAIT_FOR.md）
+    if (node.index) { node.index->accept(*this); }
     return 0;
 }

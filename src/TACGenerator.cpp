@@ -98,6 +98,18 @@ void TACGenerator::emitPrint(TACValue rs) {
     emit(std::make_unique<TACPrint>(rs));
 }
 
+void TACGenerator::emitArrayNew(TACValue rd, TACValue size, TACValue init) {
+    emit(std::make_unique<TACArrayNew>(rd, size, init));
+}
+
+void TACGenerator::emitArrayGet(TACValue rd, TACValue arr, TACValue idx) {
+    emit(std::make_unique<TACArrayGet>(rd, arr, idx));
+}
+
+void TACGenerator::emitArraySet(TACValue val, TACValue arr, TACValue idx) {
+    emit(std::make_unique<TACArraySet>(val, arr, idx));
+}
+
 void TACGenerator::emitRet(TACValue rs) {
     emit(std::make_unique<TACRet>(rs));
 }
@@ -222,6 +234,22 @@ int TACGenerator::visit(VarDecl& node) {
     return slot;
 }
 
+int TACGenerator::visit(ArrayDecl& node) {
+    int slot = allocReg(node.name);
+
+    tempReg = totalReg;
+    int sizeReg = allocTemp();
+    emitMovI(TACValue(TACValueKind::TEMP, sizeReg), node.size);
+
+    int initReg = node.initialValue->accept(*this);
+    emitArrayNew(TACValue(TACValueKind::VAR, slot),
+                 TACValue(TACValueKind::TEMP, sizeReg),
+                 TACValue(TACValueKind::TEMP, initReg));
+
+    tempReg = totalReg;
+    return slot;
+}
+
 int TACGenerator::visit(IfStmt& node) {
     int condReg = node.condition->accept(*this);
     tempReg = totalReg;
@@ -312,6 +340,23 @@ int TACGenerator::visit(ExprStmt& node) {
 
 int TACGenerator::visit(BinaryExpr& node) {
     if (node.op == TK_等号) {
+        if (auto* idx = dynamic_cast<IndexExpr*>(node.left.get())) {
+            int arrReg = lookupReg(idx->arrayName);
+            if (arrReg < 0) {
+                std::cerr << "TAC error: undefined array " << idx->arrayName << std::endl;
+                return 0;
+            }
+            int idxReg = idx->index->accept(*this);
+            int valReg = node.right->accept(*this);
+            emitArraySet(TACValue(TACValueKind::TEMP, valReg),
+                         TACValue(TACValueKind::VAR, arrReg),
+                         TACValue(TACValueKind::TEMP, idxReg));
+            int resultReg = allocTemp();
+            emitMov(TACValue(TACValueKind::TEMP, resultReg),
+                    TACValue(TACValueKind::TEMP, valReg));
+            return resultReg;
+        }
+
         if (auto* id = dynamic_cast<Identifier*>(node.left.get())) {
             int slot = lookupReg(id->name);
             if (slot < 0) {
@@ -326,7 +371,7 @@ int TACGenerator::visit(BinaryExpr& node) {
                     TACValue(TACValueKind::VAR, slot));
             return resultReg;
         }
-        std::cerr << "TAC error: assignment LHS must be identifier" << std::endl;
+        std::cerr << "TAC error: assignment LHS must be identifier or array element" << std::endl;
         return 0;
     }
 
@@ -416,4 +461,20 @@ int TACGenerator::visit(Identifier& node) {
     int rd = allocTemp();
     emitMovI(TACValue(TACValueKind::TEMP, rd), 0);
     return rd;
+}
+
+int TACGenerator::visit(IndexExpr& node) {
+    int arrReg = lookupReg(node.arrayName);
+    if (arrReg < 0) {
+        std::cerr << "TAC error: undefined array " << node.arrayName << std::endl;
+        int rd = allocTemp();
+        emitMovI(TACValue(TACValueKind::TEMP, rd), 0);
+        return rd;
+    }
+    int idxReg = node.index->accept(*this);
+    int resultReg = allocTemp();
+    emitArrayGet(TACValue(TACValueKind::TEMP, resultReg),
+                 TACValue(TACValueKind::VAR, arrReg),
+                 TACValue(TACValueKind::TEMP, idxReg));
+    return resultReg;
 }

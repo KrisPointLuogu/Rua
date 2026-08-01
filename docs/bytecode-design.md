@@ -69,6 +69,9 @@ MOVI rT, 0; MOV r0, rT; RET // 默认返回值
 | `a >= b` | `LT rT, rL, rR; MOVI rZ, 0; EQ rR, rT, rZ` |
 | `喵叫(x)` | `... x → rX; PRINT rX` |
 | `fib(args)` | `PUSH rDummy; ... arg → rA; PUSH rA; CALL fib; MOV rT, r0` |
+| `数组 声明` | `MOVI rSize, len; ...init → rV; ARRNEW rArr, rSize, rV` |
+| `示例[0]` | `...idx → rI; ARRGET rT, rArr, rI` |
+| `示例[0] = v` | `...idx → rI; ...v → rV; ARRSET rV, rArr, rI` |
 | `如果 cond 那么 {t} 否则 {e}` | `... cond; JIF rCond, else; (t); JMP after; else: (e); after:` |
 | `当 cond 那么 {body}` | `loop: ... cond; JIF rCond, end; (body); JMP loop; end:` |
 

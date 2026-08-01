@@ -33,6 +33,7 @@ struct Symbol {
     int paramCount = 0;
     int localCount = 0;
     int slotIndex = -1;
+    bool isArray = false;
 };
 
 // ----------------------------------------------------------
@@ -47,7 +48,8 @@ class SymbolTable {
     SymbolTable();
     void enterScope();
     void exitScope();
-    void declareVariable(const std::string& name, int line);
+    void declareVariable(const std::string& name, int line,
+                         bool isArray = false);
     void declareFunction(const std::string& name, int paramCount, int line);
     Symbol* lookup(const std::string& name);
     Symbol* lookupFunction(const std::string& name);
@@ -73,12 +75,14 @@ class SemanticAnalyzer : public ASTVisitor {
     int visit(Function& node) override;
     int visit(Block& node) override;
     int visit(VarDecl& node) override;
+    int visit(ArrayDecl& node) override;
     int visit(IfStmt& node) override;
     int visit(WhileStmt& node) override;
     int visit(ReturnStmt& node) override;
     int visit(ExprStmt& node) override;
     int visit(BinaryExpr& node) override;
     int visit(CallExpr& node) override;
+    int visit(IndexExpr& node) override;
     int visit(NumberLiteral& node) override;
     int visit(StringLiteral& node) override;
     int visit(Identifier& node) override;

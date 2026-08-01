@@ -94,6 +94,11 @@ greg(r) = s[fs[_fs] + r]    // 通过当前帧基址访问寄存器
 | 0x10 | CALL idx | 调用 functions[idx] |
 | 0x11 | RET | 函数返回 |
 | 0x12 | PRINT rs | 输出 reg(rs) |
+| 0x13 | LE rd, rs1, rs2 | rd = (rs1 <= rs2) |
+| 0x14 | GE rd, rs1, rs2 | rd = (rs1 >= rs2) |
+| 0x15 | ARRNEW rd, rsSize, rsInit | 新建数组并广播初始化 |
+| 0x16 | ARRGET rd, rsArr, rsIdx | rd = 数组[rsArr][rsIdx] |
+| 0x17 | ARRSET rsVal, rsArr, rsIdx | 数组[rsArr][rsIdx] = rsVal |
 
 ## 关键代码
 

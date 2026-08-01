@@ -27,8 +27,10 @@ void Value::print() const
 {
     if (type == ValueType::INTEGER)
         std::cout << data;
-    else
+    else if (type == ValueType::STRING)
         std::cout << "(string)";
+    else
+        std::cout << "(数组)";
 }
 
 VMError::VMError(const string& message) : std::runtime_error(message) {}
@@ -82,6 +84,7 @@ void VM::run(const BytecodeProgram& prog)
     int _sp = -1, _cp = -1, _fs = -1, _fp = 0;
     Value* base = s;
     vector<string> strPool;
+    vector<vector<Value>> arrayPool;
 
 #if defined(__GNUC__) || defined(__clang__)
     // GCC/Clang: computed goto（最快）
@@ -89,7 +92,8 @@ void VM::run(const BytecodeProgram& prog)
         &&op_halt,  &&op_movi, &&op_movs, &&op_mov,  &&op_add,  &&op_sub,
         &&op_mul,   &&op_div,  &&op_mod,  &&op_eq,   &&op_ne,   &&op_lt,
         &&op_gt,    &&op_jmp,  &&op_jif,  &&op_push, &&op_call, &&op_ret,
-        &&op_print, &&op_le,   &&op_ge,
+        &&op_print, &&op_le,   &&op_ge,   &&op_arrnew, &&op_arrget,
+        &&op_arrset,
     };
 
 #define I32(a)                                                                 \
@@ -210,6 +214,39 @@ op_ge: {
     ip += 8;
     NEXT();
 }
+op_arrnew: {
+    int rd = code[ip + 1], rsSize = code[ip + 2], rsInit = code[ip + 3];
+    int size = base[rsSize].data;
+    if (size < 1) throw VMError("数组长度必须为正数");
+    arrayPool.emplace_back(size, base[rsInit]);
+    base[rd] = Value(static_cast<int>(arrayPool.size()) - 1, ValueType::ARRAY);
+    ip += 8;
+    NEXT();
+}
+op_arrget: {
+    int rd = code[ip + 1], rsArr = code[ip + 2], rsIdx = code[ip + 3];
+    Value& h = base[rsArr];
+    if (h.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
+    auto& arr = arrayPool[h.data];
+    int idx = base[rsIdx].data;
+    if (idx < 0 || idx >= static_cast<int>(arr.size()))
+        throw VMError("数组下标越界");
+    base[rd] = arr[idx];
+    ip += 8;
+    NEXT();
+}
+op_arrset: {
+    int rsVal = code[ip + 1], rsArr = code[ip + 2], rsIdx = code[ip + 3];
+    Value& h = base[rsArr];
+    if (h.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
+    auto& arr = arrayPool[h.data];
+    int idx = base[rsIdx].data;
+    if (idx < 0 || idx >= static_cast<int>(arr.size()))
+        throw VMError("数组下标越界");
+    arr[idx] = base[rsVal];
+    ip += 8;
+    NEXT();
+}
 op_jmp: {
     int offset = I32(ip + 4);
     ip += 8 + offset;
@@ -275,8 +312,10 @@ op_print: {
     Value& v = base[rs1];
     if (v.type == ValueType::INTEGER)
         std::cout << v.data;
-    else
+    else if (v.type == ValueType::STRING)
         std::cout << strPool[v.data];
+    else
+        std::cout << "(数组)";
     std::cout << '\n';
     ip += 8;
     NEXT();

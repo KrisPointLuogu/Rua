@@ -121,6 +121,9 @@ static const char* opcodeName(Opcode op)
     case Opcode::PRINT: return "PRINT";
     case Opcode::LE: return "LE";
     case Opcode::GE: return "GE";
+    case Opcode::ARRNEW: return "ARRNEW";
+    case Opcode::ARRGET: return "ARRGET";
+    case Opcode::ARRSET: return "ARRSET";
     default: return "???";
     }
 }
@@ -195,6 +198,18 @@ void BytecodeProgram::print() const
                 std::cout << " " << extra;
             break;
         case Opcode::PRINT: std::cout << " r" << (int)rs1; break;
+        case Opcode::ARRNEW:
+            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r"
+                      << (int)rs2;
+            break;
+        case Opcode::ARRGET:
+            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r"
+                      << (int)rs2;
+            break;
+        case Opcode::ARRSET:
+            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r"
+                      << (int)rs2;
+            break;
         default:
             if (extra) std::cout << " " << extra;
             break;
@@ -390,6 +405,21 @@ int BytecodeGenerator::visit(VarDecl& node)
     return slot;
 }
 
+int BytecodeGenerator::visit(ArrayDecl& node)
+{
+    int slot = allocReg(node.name);
+
+    tempReg = totalReg;
+    int sizeReg = allocTemp();
+    program.emit(Opcode::MOVI, sizeReg, 0, 0, program.addConstant(node.size));
+
+    int initReg = node.initialValue->accept(*this);
+    program.emit(Opcode::ARRNEW, slot, sizeReg, initReg);
+
+    tempReg = totalReg;
+    return slot;
+}
+
 int BytecodeGenerator::visit(IfStmt& node)
 {
     int condReg = node.condition->accept(*this);
@@ -466,6 +496,21 @@ int BytecodeGenerator::visit(BinaryExpr& node)
 {
     // 赋值
     if (node.op == TK_等号) {
+        if (auto* idx = dynamic_cast<IndexExpr*>(node.left.get())) {
+            int arrReg = lookupReg(idx->arrayName);
+            if (arrReg < 0) {
+                std::cerr << "内部错误：未找到数组 '" << idx->arrayName
+                          << "' 的寄存器" << std::endl;
+                return 0;
+            }
+            int idxReg = idx->index->accept(*this);
+            int valReg = node.right->accept(*this);
+            program.emit(Opcode::ARRSET, valReg, arrReg, idxReg);
+            int resultReg = allocTemp();
+            program.emit(Opcode::MOV, resultReg, valReg);
+            return resultReg;
+        }
+
         if (auto* id = dynamic_cast<Identifier*>(node.left.get())) {
             int slot = lookupReg(id->name);
             if (slot < 0) {
@@ -479,7 +524,7 @@ int BytecodeGenerator::visit(BinaryExpr& node)
             program.emit(Opcode::MOV, resultReg, slot);
             return resultReg;
         }
-        std::cerr << "内部错误：赋值左侧必须是变量" << std::endl;
+        std::cerr << "内部错误：赋值左侧必须是变量或数组元素" << std::endl;
         return 0;
     }
 
@@ -599,6 +644,23 @@ int BytecodeGenerator::visit(Identifier& node)
     int rd = allocTemp();
     program.emit(Opcode::MOVI, rd, 0, 0, program.addConstant(0));
     return rd;
+}
+
+int BytecodeGenerator::visit(IndexExpr& node)
+{
+    int arrReg = lookupReg(node.arrayName);
+    if (arrReg < 0) {
+        std::cerr << "内部错误：未找到数组 '" << node.arrayName << "'"
+                  << std::endl;
+        int rd = allocTemp();
+        program.emit(Opcode::MOVI, rd, 0, 0, program.addConstant(0));
+        return rd;
+    }
+
+    int idxReg = node.index->accept(*this);
+    int resultReg = allocTemp();
+    program.emit(Opcode::ARRGET, resultReg, arrReg, idxReg);
+    return resultReg;
 }
 
 #ifdef OPTIMIZATION
@@ -841,6 +903,18 @@ BytecodeProgram BytecodeGenerator::generateFromTAC(const TACProgram& tac,
                 auto* c = static_cast<TACCall*>(inst.get());
                 program.emit(Opcode::CALL, 0, 0, 0, c->funcIdx);
                 program.emit(Opcode::MOV, c->rd.index, 0);
+            }
+            else if (op == TACOpcode::ARRNEW) {
+                auto* n = static_cast<TACArrayNew*>(inst.get());
+                program.emit(Opcode::ARRNEW, n->rd.index, n->size.index, n->init.index);
+            }
+            else if (op == TACOpcode::ARRGET) {
+                auto* g = static_cast<TACArrayGet*>(inst.get());
+                program.emit(Opcode::ARRGET, g->rd.index, g->arr.index, g->idx.index);
+            }
+            else if (op == TACOpcode::ARRSET) {
+                auto* s = static_cast<TACArraySet*>(inst.get());
+                program.emit(Opcode::ARRSET, s->val.index, s->arr.index, s->idx.index);
             }
             else if (op == TACOpcode::PRINT) {
                 auto* p = static_cast<TACPrint*>(inst.get());

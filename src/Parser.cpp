@@ -9,8 +9,9 @@
  *   function    = "喵" IDENTIFIER "(" [params] ")" block
  *   params      = IDENTIFIER ("," IDENTIFIER)*
  *   block       = "{" statement* "}"
- *   statement   = varDecl | ifStmt | whileStmt | returnStmt | exprStmt
+ *   statement   = varDecl | arrayDecl | ifStmt | whileStmt | returnStmt | exprStmt
  *   varDecl     = "变量" IDENTIFIER "=" expression
+ *   arrayDecl   = "数组" IDENTIFIER "[" NUMBER "]" "=" "{" expression "}"
  *   ifStmt      = "如果" expression "那么" block ("否则" block)?
  *   whileStmt   = "当" expression "那么" block
  *   returnStmt  = "返回" expression
@@ -22,6 +23,7 @@
  *   multiplication = primary (("*"|"/"|"%") primary)*
  *   primary     = NUMBER | STRING | "(" expression ")"
  *                | IDENTIFIER ("(" [args] ")")?
+ *                | IDENTIFIER "[" expression "]"
  *                | "喵叫" "(" [args] ")"
  */
 
@@ -180,6 +182,7 @@ unique_ptr<ASTNode> Parser::parseStatement()
     while (check(TK::换行符)) advance();
 
     if (check(TK::变量)) return parseVarDecl();
+    if (check(TK::数组)) return parseArrayDecl();
     if (check(TK::如果)) return parseIfStmt();
     if (check(TK::当)) return parseWhileStmt();
     if (check(TK::返回)) return parseReturnStmt();
@@ -202,6 +205,34 @@ unique_ptr<VarDecl> Parser::parseVarDecl()
     varDecl->initializer = parseExpression();
 
     return varDecl;
+}
+
+unique_ptr<ArrayDecl> Parser::parseArrayDecl()
+{
+    auto arrDecl = make_unique<ArrayDecl>();
+    arrDecl->line = peek().行位置_;
+    arrDecl->column = peek().列位置_;
+
+    consume(TK::数组, "数组声明需要以 '数组' 开头");
+
+    const 令牌& nameToken = consume(TK::标识符, "数组声明需要数组名");
+    arrDecl->name = u32to8(nameToken.内容_);
+
+    consume(TK::左中括号, "数组名后需要 '['");
+
+    const 令牌& sizeToken = consume(TK::数字, "数组长度需要是数字");
+    arrDecl->size = std::stoi(u32to8(sizeToken.内容_));
+
+    consume(TK::右中括号, "数组长度后需要 ']'");
+
+    consume(TK::等号, "数组声明需要 '='");
+    consume(TK::左花括号, "数组初始化需要 '{'");
+
+    arrDecl->initialValue = parseExpression();
+
+    consume(TK::右花括号, "数组初始化需要 '}'");
+
+    return arrDecl;
 }
 
 unique_ptr<IfStmt> Parser::parseIfStmt()
@@ -393,6 +424,16 @@ unique_ptr<ASTNode> Parser::parsePrimary()
         int column = previous().列位置_;
 
         if (match(TK::左括号)) { return parseCall(name, line, column); }
+
+        if (match(TK::左中括号)) {
+            auto index = make_unique<IndexExpr>();
+            index->line = line;
+            index->column = column;
+            index->arrayName = name;
+            index->index = parseExpression();
+            consume(TK::右中括号, "数组索引表达式后需要 ']'");
+            return index;
+        }
 
         auto id = make_unique<Identifier>();
         id->line = line;

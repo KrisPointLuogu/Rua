@@ -126,6 +126,14 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
         } else if (op == TACOpcode::CALL) {
             auto* c = static_cast<TACCall*>(inst.get());
             clearConst(c->rd.index);
+        } else if (op == TACOpcode::ARRNEW) {
+            // 空壳：数组指令不做常量优化，但结果寄存器必须标记为非常量，
+            // 防止复用旧常量值导致误折叠
+            auto* n = static_cast<TACArrayNew*>(inst.get());
+            clearConst(n->rd.index);
+        } else if (op == TACOpcode::ARRGET) {
+            auto* g = static_cast<TACArrayGet*>(inst.get());
+            clearConst(g->rd.index);
         }
     }
     return changed;

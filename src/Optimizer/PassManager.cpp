@@ -43,6 +43,18 @@ void dumpTACFunction(const TACFunction& func)
             std::cout << "HALT";
         } else if (op == TACOpcode::NOP) {
             std::cout << "NOP";
+        } else if (op == TACOpcode::ARRNEW) {
+            auto* n = static_cast<const TACArrayNew*>(inst.get());
+            std::cout << "ARRNEW r" << n->rd.index << ", r" << n->size.index
+                      << ", r" << n->init.index;
+        } else if (op == TACOpcode::ARRGET) {
+            auto* g = static_cast<const TACArrayGet*>(inst.get());
+            std::cout << "ARRGET r" << g->rd.index << ", r" << g->arr.index
+                      << ", r" << g->idx.index;
+        } else if (op == TACOpcode::ARRSET) {
+            auto* s = static_cast<const TACArraySet*>(inst.get());
+            std::cout << "ARRSET r" << s->val.index << ", r" << s->arr.index
+                      << ", r" << s->idx.index;
         } else {
             auto* b = static_cast<const TACBinary*>(inst.get());
             const char* opname = "???";

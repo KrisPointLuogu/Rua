@@ -12,6 +12,7 @@ enum class TACOpcode : uint8_t {
     JMP, JIF,
     CALL, RET,
     PUSH, PRINT,
+    ARRNEW, ARRGET, ARRSET,
     HALT
 };
 
@@ -147,6 +148,45 @@ public:
     std::unique_ptr<TACInst> clone() const override { return std::make_unique<TACPrint>(rs); }
 };
 
+// rd = 新建长度为 size 的数组，元素全部初始化为 init
+class TACArrayNew : public TACInst {
+public:
+    TACValue rd, size, init;
+    TACArrayNew(TACValue rd, TACValue size, TACValue init)
+        : rd(rd), size(size), init(init) {}
+    TACOpcode getOpcode() const override { return TACOpcode::ARRNEW; }
+    int accept(TACVisitor& v) override;
+    std::unique_ptr<TACInst> clone() const override {
+        return std::make_unique<TACArrayNew>(rd, size, init);
+    }
+};
+
+// rd = 数组[arr][idx]
+class TACArrayGet : public TACInst {
+public:
+    TACValue rd, arr, idx;
+    TACArrayGet(TACValue rd, TACValue arr, TACValue idx)
+        : rd(rd), arr(arr), idx(idx) {}
+    TACOpcode getOpcode() const override { return TACOpcode::ARRGET; }
+    int accept(TACVisitor& v) override;
+    std::unique_ptr<TACInst> clone() const override {
+        return std::make_unique<TACArrayGet>(rd, arr, idx);
+    }
+};
+
+// 数组[arr][idx] = val
+class TACArraySet : public TACInst {
+public:
+    TACValue val, arr, idx;
+    TACArraySet(TACValue val, TACValue arr, TACValue idx)
+        : val(val), arr(arr), idx(idx) {}
+    TACOpcode getOpcode() const override { return TACOpcode::ARRSET; }
+    int accept(TACVisitor& v) override;
+    std::unique_ptr<TACInst> clone() const override {
+        return std::make_unique<TACArraySet>(val, arr, idx);
+    }
+};
+
 // return rs (rs is the return value register)
 class TACRet : public TACInst {
 public:
@@ -190,6 +230,9 @@ public:
     virtual int visit(TACRet& n) = 0;
     virtual int visit(TACHalt& n) = 0;
     virtual int visit(TACNop& n) = 0;
+    virtual int visit(TACArrayNew& n) = 0;
+    virtual int visit(TACArrayGet& n) = 0;
+    virtual int visit(TACArraySet& n) = 0;
 };
 
 // TACFunction: one function's TAC representation

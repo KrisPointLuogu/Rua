@@ -49,6 +49,26 @@ bool DeadCodeElimination::run(TACProgram& program, int funcIdx)
         } else if (op == TACOpcode::RET) {
             auto* r = static_cast<TACRet*>(inst.get());
             if (r->rs.kind == TACValueKind::TEMP) usedTemps.insert(r->rs.index);
+        } else if (op == TACOpcode::ARRNEW) {
+            // 空壳：数组指令是黑盒，所有引用的临时寄存器都必须视为活跃，
+            // 否则索引常量等会被误删
+            auto* n = static_cast<TACArrayNew*>(inst.get());
+            if (n->rd.kind == TACValueKind::TEMP)
+                usedTemps.insert(n->rd.index);
+            if (n->size.kind == TACValueKind::TEMP)
+                usedTemps.insert(n->size.index);
+            if (n->init.kind == TACValueKind::TEMP)
+                usedTemps.insert(n->init.index);
+        } else if (op == TACOpcode::ARRGET) {
+            auto* g = static_cast<TACArrayGet*>(inst.get());
+            if (g->rd.kind == TACValueKind::TEMP) usedTemps.insert(g->rd.index);
+            if (g->arr.kind == TACValueKind::TEMP) usedTemps.insert(g->arr.index);
+            if (g->idx.kind == TACValueKind::TEMP) usedTemps.insert(g->idx.index);
+        } else if (op == TACOpcode::ARRSET) {
+            auto* s = static_cast<TACArraySet*>(inst.get());
+            if (s->val.kind == TACValueKind::TEMP) usedTemps.insert(s->val.index);
+            if (s->arr.kind == TACValueKind::TEMP) usedTemps.insert(s->arr.index);
+            if (s->idx.kind == TACValueKind::TEMP) usedTemps.insert(s->idx.index);
         }
     }
 

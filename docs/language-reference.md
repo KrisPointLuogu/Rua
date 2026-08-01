@@ -21,7 +21,7 @@ Rua 是一門全中文关键字的编程语言，支持脚本模式（无需入�
 | `返回` | 函数返回      | `返回 表达式`                 |
 | `喵叫` | 内置输出      | `喵叫(值1, 值2, ...)`         |
 | `运行` | 保留          | 用于 REPL 触发执行            |
-| `数组` | 保留          | 数组类型（预留）              |
+| `数组` | 数组声明      | `数组 名[长度] = {内容}`      |
 | `或者` | 保留          | 逻辑或（预留）                |
 
 ### 1.2 字面量
@@ -69,8 +69,9 @@ function      = "喵" IDENTIFIER "(" [params] ")" block
 params        = IDENTIFIER ("," IDENTIFIER)*
 block         = "{" statement* "}"
 
-statement     = varDecl | ifStmt | whileStmt | returnStmt | exprStmt
+statement     = varDecl | arrayDecl | ifStmt | whileStmt | returnStmt | exprStmt
 varDecl       = "变量" IDENTIFIER "=" expression
+arrayDecl     = "数组" IDENTIFIER "[" NUMBER "]" "=" "{" expression "}"
 ifStmt        = "如果" expression "那么"? block ("否则" block)?
 whileStmt     = "当" expression "那么"? block
 returnStmt    = "返回" expression
@@ -85,6 +86,7 @@ multiplication = primary (("*"|"/"|"%") primary)*
 primary       = NUMBER | STRING
               | "(" expression ")"
               | IDENTIFIER ("(" [args] ")")?
+              | IDENTIFIER "[" expression "]"
               | "喵叫" "(" [args] ")"
 ```
 
@@ -94,6 +96,21 @@ primary       = NUMBER | STRING
 | ------------ | ------------------------------------ |
 | `喵叫(...)`  | 输出参数值（可变参数），自动空格分隔 |
 | `运行(路径)` | 运行文件（预留）                     |
+
+### 1.7 数组
+
+| 语法                         | 示例                 | 说明                                   |
+| ---------------------------- | -------------------- | -------------------------------------- |
+| `数组 数组名[长度] = {内容}` | `数组 示例[2] = {0}` | 数组声明                               |
+| `数组名[索引] = 内容`        | `示例[0] = 25`       | 替换一个数组指定索引位置处的值         |
+| `数组名[索引]`               | `示例[1]`            | 读取数组指定索引位置处的值（作表达式） |
+
+规则：
+
+- **长度**：只能是正整数数字字面量。
+- **`{内容}` 广播**：`{}` 中单个表达式会填充整个数组的所有元素（如 `数组 示例[3] = {0}` 得到 `[0, 0, 0]`）。
+- **索引**：`[索引]` 中索引可以是任意表达式，运行期求值；下标越界或为负抛运行时错误 `数组下标越界`。
+- **引用语义**：数组是运行时数组池的句柄，赋值/传参会共享同一份数组（与 Lua table 类似）。
 
 ---
 
@@ -263,6 +280,11 @@ NEW_INST = 0x13,
 | 0x10 | CALL idx | 调用函数 |
 | 0x11 | RET | 函数返回 |
 | 0x12 | PRINT rs | 输出 reg(rs) |
+| 0x13 | LE rd, rs1, rs2 | rd = (rs1 <= rs2) |
+| 0x14 | GE rd, rs1, rs2 | rd = (rs1 >= rs2) |
+| 0x15 | ARRNEW rd, rsSize, rsInit | 新建长度为 rsSize 的数组，元素全部初始化为 rsInit，句柄存 rd |
+| 0x16 | ARRGET rd, rsArr, rsIdx | rd = 数组[rsArr][rsIdx]（越界抛运行时错误） |
+| 0x17 | ARRSET rsVal, rsArr, rsIdx | 数组[rsArr][rsIdx] = rsVal（越界抛运行时错误） |
 
 ### 3.7 JIT 编译 — `JIT`
 

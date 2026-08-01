@@ -25,7 +25,7 @@
 //   RET 将返回值写入调用者的 r0，恢复调用者帧
 //
 
-enum class ValueType { INTEGER, STRING };
+enum class ValueType { INTEGER, STRING, ARRAY };
 
 struct Value {
     ValueType type;

@@ -49,6 +49,9 @@ enum class Opcode : uint8_t {
     PRINT = 0x12, // 输出 reg(rs1)
     LE = 0x13,    // rd = (rs1 <= rs2) ? 1 : 0
     GE = 0x14,    // rd = (rs1 >= rs2) ? 1 : 0
+    ARRNEW = 0x15, // rd = 新建长度为 rs1 的数组，元素全部初始化为 rs2
+    ARRGET = 0x16, // rd = 数组[rs1][rs2]（rs1=数组句柄，rs2=索引）
+    ARRSET = 0x17, // 数组[rs1][rs2] = rd（rs1=句柄，rs2=索引，rd=新值）
 };
 
 struct FunctionInfo {
@@ -106,12 +109,14 @@ class BytecodeGenerator : public ASTVisitor {
     int visit(Function& node) override;
     int visit(Block& node) override;
     int visit(VarDecl& node) override;
+    int visit(ArrayDecl& node) override;
     int visit(IfStmt& node) override;
     int visit(WhileStmt& node) override;
     int visit(ReturnStmt& node) override;
     int visit(ExprStmt& node) override;
     int visit(BinaryExpr& node) override;
     int visit(CallExpr& node) override;
+    int visit(IndexExpr& node) override;
     int visit(NumberLiteral& node) override;
     int visit(StringLiteral& node) override;
     int visit(Identifier& node) override;

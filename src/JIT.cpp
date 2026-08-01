@@ -399,6 +399,9 @@ bool JITCompiler::canJIT(const FunctionInfo& func, const BytecodeProgram& prog)
         Opcode op = (Opcode)prog.code[pc];
         if (op == Opcode::MOVS) return false;
         if (op == Opcode::DIV || op == Opcode::MOD) return false;
+        if (op == Opcode::ARRNEW || op == Opcode::ARRGET
+            || op == Opcode::ARRSET)
+            return false;
     }
     return true;
 }
