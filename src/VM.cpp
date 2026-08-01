@@ -297,19 +297,30 @@ op_call: {
     int funcIdx = I32(ip + 4);
 
 #ifdef OPTIMIZATION
-    // JIT 快速路径
+    // JIT 快速路径：仅当所有参数均为整数时启用
+    // 数组/字符串句柄经 JIT 函数往返会丢失 Value 类型（句柄被当作整数），
+    // 故遇非整数参数退回解释器 CALL，以完整保留 Value 类型
     if (fnJIT[funcIdx]) {
-        JITFunc jitFn = (JITFunc)fnJIT[funcIdx];
         int pCnt = fnPC[funcIdx];
-        int64_t args[6] = { 0, 0, 0, 0, 0, 0 };
-        for (int i = 0; i < pCnt && i < 6; i++)
-            args[i] = s[_sp - pCnt + 1 + i].data;
-        _sp -= pCnt + 1; // 弹出参数 + r0 占位
-        int64_t result
-            = jitFn(args[0], args[1], args[2], args[3], args[4], args[5]);
-        s[_fp] = Value((int)result);
-        ip += 8;
-        NEXT();
+        bool 参数全整数 = true;
+        for (int i = 0; i < pCnt && i < 6; i++) {
+            if (s[_sp - pCnt + 1 + i].type != ValueType::INTEGER) {
+                参数全整数 = false;
+                break;
+            }
+        }
+        if (参数全整数) {
+            JITFunc jitFn = (JITFunc)fnJIT[funcIdx];
+            int64_t args[6] = { 0, 0, 0, 0, 0, 0 };
+            for (int i = 0; i < pCnt && i < 6; i++)
+                args[i] = s[_sp - pCnt + 1 + i].data;
+            _sp -= pCnt + 1; // 弹出参数 + r0 占位
+            int64_t result
+                = jitFn(args[0], args[1], args[2], args[3], args[4], args[5]);
+            s[_fp] = Value((int)result);
+            ip += 8;
+            NEXT();
+        }
     }
 #endif
 
