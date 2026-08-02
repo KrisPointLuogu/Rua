@@ -19,7 +19,11 @@
 #endif
 
 #ifdef _DEBUG
+#include "ASTDump.h"
 #include "DebugOutput.h"
+#ifdef OPTIMIZATION
+#include "IR/TACDump.h"
+#endif
 #endif
 
 using std::string;
@@ -50,6 +54,11 @@ void 编译并运行(const string& 源码)
                      + " 个函数",
                  "GG");
 
+#ifdef _DEBUG
+        调试输出("AST 语法树:", "YY");
+        dumpAST(*程序);
+#endif
+
         输出文本("【阶段三】语义分析 ...", "青");
         SemanticAnalyzer 语义分析器;
         语义分析器.analyze(*程序);
@@ -63,9 +72,19 @@ void 编译并运行(const string& 源码)
         TACGenerator tacGen(语义分析器.getSymbolTable());
         TACProgram tac = tacGen.generate(*程序);
 
+#ifdef _DEBUG
+        调试输出("优化前 TAC (IR):", "YY");
+        dumpTACProgram(tac);
+#endif
+
         输出文本("  [优化] 运行优化 pass ...", "WW");
         PassManager passMgr;
         passMgr.runAll(tac);
+
+#ifdef _DEBUG
+        调试输出("优化后 TAC (IR):", "YY");
+        dumpTACProgram(tac);
+#endif
 
         输出文本("  [优化] TAC → 字节码 ...", "WW");
         std::vector<int> regCounts;
