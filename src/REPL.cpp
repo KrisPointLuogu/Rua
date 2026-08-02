@@ -32,7 +32,7 @@ using std::vector;
 
 // ==================== 编译并运行一个完整的 Rua 程序 ====================
 
-void 编译并运行(const string& 源码)
+bool 编译(const string& 源码, BytecodeProgram& 字节码)
 {
     try {
         输出文本("【阶段一】词法分析 ...", "青");
@@ -41,7 +41,7 @@ void 编译并运行(const string& 源码)
 
         if (令牌列表.empty()) {
             输出文本("没有 Token 可解析", "YY");
-            return;
+            return false;
         }
 
         输出文本("完成，共 " + std::to_string(令牌列表.size()) + " 个 Token",
@@ -90,10 +90,10 @@ void 编译并运行(const string& 源码)
         std::vector<int> regCounts;
         for (auto& f : tac.functions) regCounts.push_back(f.regCount);
         BytecodeGenerator 生成器(语义分析器.getSymbolTable());
-        BytecodeProgram 字节码 = 生成器.generateFromTAC(tac, regCounts);
+        字节码 = 生成器.generateFromTAC(tac, regCounts);
 #else
         BytecodeGenerator 生成器(语义分析器.getSymbolTable());
-        BytecodeProgram 字节码 = 生成器.generate(*程序);
+        字节码 = 生成器.generate(*程序);
 #endif
 
 #ifdef _DEBUG
@@ -113,15 +113,30 @@ void 编译并运行(const string& 源码)
         输出文本("JIT 完成", "GG");
 #endif
 
+        return true;
+    } catch (const ParserError& e) {
+        输出文本(string("语法错误：") + e.what(), "RR");
+    } catch (const SemanticError& e) {
+        输出文本(string("语义错误：") + e.what(), "RR");
+    } catch (const VMError& e) {
+        输出文本(string("运行时错误：") + e.what(), "RR");
+    } catch (const std::exception& e) {
+        输出文本(string("错误：") + e.what(), "RR");
+    }
+    return false;
+}
+
+void 编译并运行(const string& 源码)
+{
+    BytecodeProgram 字节码;
+    if (!编译(源码, 字节码)) return;
+
+    try {
         输出文本("【阶段五】虚拟机执行 ...", "青");
         VM 虚拟机;
         虚拟机.run(字节码);
         std::cout << std::endl;
         输出文本("程序执行完毕！", "GG");
-    } catch (const ParserError& e) {
-        输出文本(string("语法错误：") + e.what(), "RR");
-    } catch (const SemanticError& e) {
-        输出文本(string("语义错误：") + e.what(), "RR");
     } catch (const VMError& e) {
         输出文本(string("运行时错误：") + e.what(), "RR");
     } catch (const std::exception& e) {
@@ -141,6 +156,35 @@ void 运行文件(const string& 路径)
 
     输出文本("正在编译 " + 路径 + " ...", "青");
     编译并运行(源码);
+}
+
+// ==================== 运行 .rab 字节码文件 ====================
+
+bool 运行字节码文件(const string& 路径)
+{
+    BytecodeProgram 字节码;
+    string 错误信息;
+    if (!字节码.load(路径, 错误信息)) {
+        输出文本("错误：" + 错误信息, "RR");
+        return false;
+    }
+
+    try {
+        输出文本("【加载字节码】" + 路径 + " (" + std::to_string(字节码.code.size())
+                     + " 字节)",
+                 "青");
+        输出文本("【虚拟机执行】入口函数: " + 字节码.entryPoint + " ...", "青");
+        VM 虚拟机;
+        虚拟机.run(字节码);
+        std::cout << std::endl;
+        输出文本("程序执行完毕！", "GG");
+        return true;
+    } catch (const VMError& e) {
+        输出文本(string("运行时错误：") + e.what(), "RR");
+    } catch (const std::exception& e) {
+        输出文本(string("错误：") + e.what(), "RR");
+    }
+    return false;
 }
 
 // ==================== 原有 REPL 函数 (保留) ====================

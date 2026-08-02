@@ -11,8 +11,12 @@
 
 namespace arch {
 
-// 读取文本文件全部内容
+// 读取文件全部内容（二进制安全）
 // 成功返回 true 并把内容写入 内容；失败返回 false
 bool readFile(const std::string& path, std::string& content);
+
+// 将内容写入文件（二进制安全），覆盖已有文件
+// 成功返回 true；失败返回 false
+bool writeFile(const std::string& path, const std::string& content);
 
 } // namespace arch

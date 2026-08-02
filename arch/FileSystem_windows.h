@@ -37,5 +37,26 @@ inline bool winReadFile(const std::string& path, std::string& content)
 	return true;
 }
 
+inline bool winWriteFile(const std::string& path, const std::string& content)
+{
+	// UTF-8 → 宽字符路径
+	int wLen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+	if (wLen <= 0) return false;
+
+	std::vector<wchar_t> wPath(static_cast<size_t>(wLen));
+	MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wPath.data(), wLen);
+
+	FILE* 文件 = _wfopen(wPath.data(), L"wb");
+	if (!文件) return false;
+
+	bool 成功 = true;
+	if (!content.empty()) {
+		成功 = fwrite(content.data(), 1, content.size(), 文件)
+		      == content.size();
+	}
+	if (fclose(文件) != 0) 成功 = false;
+	return 成功;
+}
+
 } // namespace detail
 } // namespace arch

@@ -18,5 +18,13 @@ inline bool linuxReadFile(const std::string& path, std::string& content)
 	return true;
 }
 
+inline bool linuxWriteFile(const std::string& path, const std::string& content)
+{
+	std::ofstream 文件(path, std::ios::binary | std::ios::trunc);
+	if (!文件.is_open()) return false;
+	文件.write(content.data(), static_cast<std::streamsize>(content.size()));
+	return static_cast<bool>(文件);
+}
+
 } // namespace detail
 } // namespace arch

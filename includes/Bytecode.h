@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <set>
 #include <string>
@@ -7,6 +8,7 @@
 #include <vector>
 #include "SemanticAnalysis.h"
 #include "AST.h"
+#include "FileSystem.h"
 #ifdef OPTIMIZATION
 #include "IR/TACInstructions.h"
 #endif
@@ -80,6 +82,15 @@ class BytecodeProgram {
     int getCodeSize() const;
     void patchOperand(int offset, int value);
     void print() const;
+    void print(std::ostream& out) const;
+
+    // .rab 二进制序列化
+    // 成功返回 true；失败返回 false 并写入 错误信息
+    bool save(const std::string& path, std::string& 错误信息) const;
+    bool load(const std::string& path, std::string& 错误信息);
+
+    // 人类可读文本导出（复用 print 格式），写入指定文件
+    bool saveText(const std::string& path, std::string& 错误信息) const;
 };
 
 class BytecodeGenerator : public ASTVisitor {

@@ -130,25 +130,30 @@ static const char* opcodeName(Opcode op)
 
 void BytecodeProgram::print() const
 {
-    std::cout << "====== 字节码程序 ======\n\n";
-    std::cout << "--- 函数表 ---\n";
+    print(std::cout);
+}
+
+void BytecodeProgram::print(std::ostream& out) const
+{
+    out << "====== 字节码程序 ======\n\n";
+    out << "--- 函数表 ---\n";
     for (size_t i = 0; i < functions.size(); i++) {
         const auto& f = functions[i];
-        std::cout << "  [" << i << "] " << f.name << " (参数=" << f.paramCount
-                  << ", 局部变量=" << f.localCount
-                  << ", 寄存器数=" << f.regCount << ", 偏移=" << f.codeOffset
-                  << ")\n";
+        out << "  [" << i << "] " << f.name << " (参数=" << f.paramCount
+            << ", 局部变量=" << f.localCount
+            << ", 寄存器数=" << f.regCount << ", 偏移=" << f.codeOffset
+            << ")\n";
     }
 
-    std::cout << "\n--- 整数常量表 ---\n";
+    out << "\n--- 整数常量表 ---\n";
     for (size_t i = 0; i < constants.size(); i++)
-        std::cout << "  [" << i << "] " << constants[i] << "\n";
+        out << "  [" << i << "] " << constants[i] << "\n";
 
-    std::cout << "\n--- 字符串表 ---\n";
+    out << "\n--- 字符串表 ---\n";
     for (size_t i = 0; i < strings.size(); i++)
-        std::cout << "  [" << i << "] \"" << strings[i] << "\"\n";
+        out << "  [" << i << "] \"" << strings[i] << "\"\n";
 
-    std::cout << "\n--- 字节码 ---\n";
+    out << "\n--- 字节码 ---\n";
     int ip = 0;
     while (ip < static_cast<int>(code.size())) {
         Opcode op = static_cast<Opcode>(code[ip]);
@@ -160,17 +165,17 @@ void BytecodeProgram::print() const
                     | (static_cast<int>(code[ip + 6]) << 16)
                     | (static_cast<int>(code[ip + 7]) << 24);
 
-        std::cout << "  " << ip << ":\t" << opcodeName(op);
+        out << "  " << ip << ":\t" << opcodeName(op);
 
         switch (op) {
         case Opcode::MOVI:
-            std::cout << " r" << (int)rd << ", #" << extra;
+            out << " r" << (int)rd << ", #" << extra;
             break;
         case Opcode::MOVS:
-            std::cout << " r" << (int)rd << ", \"" << strings[extra] << "\"";
+            out << " r" << (int)rd << ", \"" << strings[extra] << "\"";
             break;
         case Opcode::MOV:
-            std::cout << " r" << (int)rd << ", r" << (int)rs1;
+            out << " r" << (int)rd << ", r" << (int)rs1;
             break;
         case Opcode::ADD:
         case Opcode::SUB:
@@ -183,41 +188,219 @@ void BytecodeProgram::print() const
         case Opcode::GT:
         case Opcode::LE:
         case Opcode::GE:
-            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r"
-                      << (int)rs2;
+            out << " r" << (int)rd << ", r" << (int)rs1 << ", r"
+                << (int)rs2;
             break;
-        case Opcode::JMP: std::cout << " " << (ip + 8 + extra); break;
+        case Opcode::JMP: out << " " << (ip + 8 + extra); break;
         case Opcode::JIF:
-            std::cout << " r" << (int)rs1 << ", " << (ip + 8 + extra);
+            out << " r" << (int)rs1 << ", " << (ip + 8 + extra);
             break;
-        case Opcode::PUSH: std::cout << " r" << (int)rs1; break;
+        case Opcode::PUSH: out << " r" << (int)rs1; break;
         case Opcode::CALL:
             if (extra >= 0 && extra < static_cast<int>(functions.size()))
-                std::cout << " " << functions[extra].name;
+                out << " " << functions[extra].name;
             else
-                std::cout << " " << extra;
+                out << " " << extra;
             break;
-        case Opcode::PRINT: std::cout << " r" << (int)rs1; break;
+        case Opcode::PRINT: out << " r" << (int)rs1; break;
         case Opcode::ARRNEW:
-            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r"
-                      << (int)rs2;
+            out << " r" << (int)rd << ", r" << (int)rs1 << ", r"
+                << (int)rs2;
             break;
         case Opcode::ARRGET:
-            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r"
-                      << (int)rs2;
+            out << " r" << (int)rd << ", r" << (int)rs1 << ", r"
+                << (int)rs2;
             break;
         case Opcode::ARRSET:
-            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r"
-                      << (int)rs2;
+            out << " r" << (int)rd << ", r" << (int)rs1 << ", r"
+                << (int)rs2;
             break;
         default:
-            if (extra) std::cout << " " << extra;
+            if (extra) out << " " << extra;
             break;
         }
-        std::cout << "\n";
+        out << "\n";
         ip += 8;
     }
-    std::cout << "========================\n";
+    out << "========================\n";
+}
+
+// ==================== .rab 二进制序列化 ====================
+// 格式见 docs/rab-format.md
+
+namespace {
+
+// 小端写入 i32
+void 写入i32(std::string& buf, int32_t v)
+{
+    buf.push_back(static_cast<char>(v & 0xFF));
+    buf.push_back(static_cast<char>((v >> 8) & 0xFF));
+    buf.push_back(static_cast<char>((v >> 16) & 0xFF));
+    buf.push_back(static_cast<char>((v >> 24) & 0xFF));
+}
+
+void 写入字符串(std::string& buf, const string& s)
+{
+    写入i32(buf, static_cast<int32_t>(s.size()));
+    buf.append(s);
+}
+
+// 小端读取 i32（不越界检查，调用方保证长度）
+int32_t 读取i32(const std::string& buf, size_t& pos)
+{
+    int32_t v = static_cast<uint8_t>(buf[pos])
+                | (static_cast<uint8_t>(buf[pos + 1]) << 8)
+                | (static_cast<uint8_t>(buf[pos + 2]) << 16)
+                | (static_cast<uint8_t>(buf[pos + 3]) << 24);
+    pos += 4;
+    return v;
+}
+
+bool 读取字符串(const std::string& buf, size_t& pos, string& out)
+{
+    int32_t len = 读取i32(buf, pos);
+    if (len < 0 || pos + static_cast<size_t>(len) > buf.size()) return false;
+    out.assign(buf.data() + pos, static_cast<size_t>(len));
+    pos += static_cast<size_t>(len);
+    return true;
+}
+
+const char RAB_MAGIC[4] = { 'R', 'U', 'A', '\0' };
+const int32_t RAB_VERSION = 1;
+
+} // namespace
+
+bool BytecodeProgram::save(const std::string& path, string& 错误信息) const
+{
+    std::string buf;
+    buf.reserve(64 + code.size() + strings.size() * 16);
+
+    buf.append(RAB_MAGIC, 4);
+    写入i32(buf, RAB_VERSION);
+
+    写入i32(buf, static_cast<int32_t>(constants.size()));
+    for (int c : constants) 写入i32(buf, c);
+
+    写入i32(buf, static_cast<int32_t>(strings.size()));
+    for (const auto& s : strings) 写入字符串(buf, s);
+
+    写入i32(buf, static_cast<int32_t>(functions.size()));
+    for (const auto& f : functions) {
+        写入字符串(buf, f.name);
+        写入i32(buf, f.paramCount);
+        写入i32(buf, f.localCount);
+        写入i32(buf, f.regCount);
+        写入i32(buf, f.codeOffset);
+    }
+
+    写入字符串(buf, entryPoint);
+
+    写入i32(buf, static_cast<int32_t>(code.size()));
+    buf.append(reinterpret_cast<const char*>(code.data()), code.size());
+
+    if (!arch::writeFile(path, buf)) {
+        错误信息 = "无法写入文件 '" + path + "'";
+        return false;
+    }
+    return true;
+}
+
+bool BytecodeProgram::load(const std::string& path, string& 错误信息)
+{
+    std::string buf;
+    if (!arch::readFile(path, buf)) {
+        错误信息 = "无法打开文件 '" + path + "'";
+        return false;
+    }
+
+    size_t pos = 0;
+    if (buf.size() < 8 || buf.compare(0, 4, RAB_MAGIC, 4) != 0) {
+        错误信息 = "不是有效的 .rab 文件（magic 不匹配）";
+        return false;
+    }
+    pos = 4;
+    int32_t version = 读取i32(buf, pos);
+    if (version != RAB_VERSION) {
+        错误信息 = "不支持的 .rab 版本: " + std::to_string(version);
+        return false;
+    }
+
+    constants.clear();
+    strings.clear();
+    functions.clear();
+    code.clear();
+
+    int32_t cCount = 读取i32(buf, pos);
+    if (cCount < 0 || pos + static_cast<size_t>(cCount) * 4 > buf.size()) {
+        错误信息 = ".rab 文件损坏（常量表长度非法）";
+        return false;
+    }
+    constants.reserve(static_cast<size_t>(cCount));
+    for (int32_t i = 0; i < cCount; i++) constants.push_back(读取i32(buf, pos));
+
+    int32_t sCount = 读取i32(buf, pos);
+    if (sCount < 0) {
+        错误信息 = ".rab 文件损坏（字符串表长度非法）";
+        return false;
+    }
+    strings.reserve(static_cast<size_t>(sCount));
+    for (int32_t i = 0; i < sCount; i++) {
+        string s;
+        if (!读取字符串(buf, pos, s)) {
+            错误信息 = ".rab 文件损坏（字符串表）";
+            return false;
+        }
+        strings.push_back(std::move(s));
+    }
+
+    int32_t fCount = 读取i32(buf, pos);
+    if (fCount < 0) {
+        错误信息 = ".rab 文件损坏（函数表长度非法）";
+        return false;
+    }
+    functions.reserve(static_cast<size_t>(fCount));
+    for (int32_t i = 0; i < fCount; i++) {
+        FunctionInfo info;
+        if (!读取字符串(buf, pos, info.name)) {
+            错误信息 = ".rab 文件损坏（函数名）";
+            return false;
+        }
+        info.paramCount = 读取i32(buf, pos);
+        info.localCount = 读取i32(buf, pos);
+        info.regCount = 读取i32(buf, pos);
+        info.codeOffset = 读取i32(buf, pos);
+#ifdef OPTIMIZATION
+        info.jitFunc = nullptr;
+#endif
+        functions.push_back(info);
+    }
+
+    if (!读取字符串(buf, pos, entryPoint)) {
+        错误信息 = ".rab 文件损坏（入口函数名）";
+        return false;
+    }
+
+    int32_t codeSize = 读取i32(buf, pos);
+    if (codeSize < 0 || pos + static_cast<size_t>(codeSize) > buf.size()) {
+        错误信息 = ".rab 文件损坏（指令流长度非法）";
+        return false;
+    }
+    code.assign(
+        reinterpret_cast<const uint8_t*>(buf.data() + pos),
+        reinterpret_cast<const uint8_t*>(buf.data() + pos) + codeSize);
+
+    return true;
+}
+
+bool BytecodeProgram::saveText(const std::string& path, string& 错误信息) const
+{
+    std::ostringstream 缓冲区;
+    print(缓冲区);
+    if (!arch::writeFile(path, 缓冲区.str())) {
+        错误信息 = "无法写入文件 '" + path + "'";
+        return false;
+    }
+    return true;
 }
 
 // ==================== BytecodeGenerator ====================
