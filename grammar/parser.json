@@ -1,0 +1,85 @@
+{
+  "meta": {
+    "language": "Rua",
+    "version": "0.2.0",
+    "notation": "EBNF：= 定义；| 或；[ X ] 可选（0 或 1 次）；{ X } 重复（0 或多次）；( X ) 分组；\"文本\" 字面量 token；NAME 非终结符。换行符在语句边界被跳过，规则中不再显式写出。",
+    "note": "规则如实反映 parser 现状；每条可带 note 记录与常规语言的差异。规则名对应 grammar/lexer.json 中的 token（关键字/符号）。"
+  },
+  "structure": {
+    "program": {
+      "rule": "喵叫/运行调用 或 { function | statement } 直到 EOF",
+      "note": "顶层既允许函数定义也允许语句；语句会在 TAC 阶段并入主函数。"
+    },
+    "function": {
+      "rule": "喵 IDENTIFIER \"(\" [ IDENTIFIER { \",\" IDENTIFIER } ] \")\" block",
+      "note": "函数定义，参数为标识符列表。"
+    },
+    "block": {
+      "rule": "\"{\" { statement } \"}\"",
+      "note": "语句块；语句之间/前后的换行被跳过。"
+    }
+  },
+  "statements": {
+    "varDecl": {
+      "rule": "变量 IDENTIFIER \"=\" expression",
+      "note": "变量声明，必须带初始化。"
+    },
+    "arrayDecl": {
+      "rule": "数组 IDENTIFIER \"[\" 数字 \"]\" \"=\" \"{\" expression \"}\"",
+      "note": "数组长度必须为数字字面量；初始化器为单个表达式，运行时广播填充全部元素。"
+    },
+    "ifStmt": {
+      "rule": "如果 expression 那么 block [ 否则 block ]",
+      "note": "那么 必填；否则 分支可选。"
+    },
+    "whileStmt": {
+      "rule": "当 expression 那么 block",
+      "note": "那么 必填。"
+    },
+    "returnStmt": {
+      "rule": "返回 expression",
+      "note": "返回语句，须带返回值。"
+    },
+    "exprStmt": {
+      "rule": "expression",
+      "note": "表达式语句（含赋值、函数调用、索引赋值等）。"
+    }
+  },
+  "expressions": {
+    "expression": {
+      "rule": "assignment",
+      "note": "表达式入口。"
+    },
+    "assignment": {
+      "rule": "equality [ \"=\" assignment ]",
+      "note": "右结合；左操作数须为可赋值目标（标识符或索引），由语义/TAC 阶段检查。"
+    },
+    "equality": {
+      "rule": "comparison { ( \"==\" | \"!=\" ) comparison }"
+    },
+    "comparison": {
+      "rule": "addition { ( \">\" | \"<\" | \">=\" | \"<=\" ) addition }"
+    },
+    "addition": {
+      "rule": "multiplication { ( \"+\" | \"-\" ) multiplication }"
+    },
+    "multiplication": {
+      "rule": "primary { ( \"*\" | \"/\" | \"%\" ) primary }"
+    },
+    "primary": {
+      "rule": "数字 | 字符串 | \"(\" expression \")\" | IDENTIFIER | IDENTIFIER \"(\" [ args ] \")\" | IDENTIFIER \"[\" expression \"]\" | ( 喵叫 | 运行 ) \"(\" [ args ] \")\"",
+      "note": "内置关键字 喵叫/运行 以函数调用形式出现。"
+    },
+    "call": {
+      "rule": "IDENTIFIER \"(\" [ expression { \",\" expression } ] \")\"",
+      "note": "调用后可通过 indexChain 继续索引。"
+    },
+    "args": {
+      "rule": "expression { \",\" expression }"
+    },
+    "indexChain": {
+      "rule": "[ \"[\" expression \"]\" ] { \"[\" expression \"]\" }",
+      "note": "支持链式索引 a[i][j]；函数调用、括号表达式、标识符后都可接索引。"
+    }
+  }
+}

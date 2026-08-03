@@ -16,9 +16,14 @@ Token 列表（来自词法分析）。
 program       = (function | statement)*
 function      = "喵" IDENTIFIER "(" [params] ")" block
 block         = "{" statement* "}"
-statement     = varDecl | ifStmt | whileStmt | returnStmt | exprStmt
+statement     = varDecl | arrayDecl | ifStmt | whileStmt | returnStmt | exprStmt
 expression    = assignment (优先级从低到高)
+
+ifStmt        = "如果" expression "那么" block ("否则" block)?
+whileStmt     = "当" expression "那么" block
 ```
+
+> 完整文法见 `grammar/parser.json`（EBNF 记号说明见该文件 meta）。`那么` 为必填关键字。
 
 ## 流程
 

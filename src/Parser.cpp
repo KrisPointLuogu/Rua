@@ -245,8 +245,7 @@ unique_ptr<IfStmt> Parser::parseIfStmt()
 
     ifStmt->condition = parseExpression();
 
-    // 可选的 "那么"
-    if (check(TK::那么)) advance();
+    consume(TK::那么, "条件表达式后需要 '那么'");
 
     // 跳过换行
     while (check(TK::换行符)) advance();
@@ -275,8 +274,7 @@ unique_ptr<WhileStmt> Parser::parseWhileStmt()
 
     whileStmt->condition = parseExpression();
 
-    // 可选的 "那么"
-    if (check(TK::那么)) advance();
+    consume(TK::那么, "条件表达式后需要 '那么'");
 
     // 跳过换行
     while (check(TK::换行符)) advance();
