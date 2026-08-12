@@ -4,10 +4,10 @@
 #include <string>
 #include <vector>
 
-#ifdef _LINUX
-#include "CommandLine_linux.h"
-#elif defined(_WIN)
+#if defined(_WIN32)
 #include "CommandLine_windows.h"
+#elif defined(_LINUX)
+#include "CommandLine_linux.h"
 #endif
 
 namespace arch {

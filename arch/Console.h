@@ -1,10 +1,10 @@
 #pragma once
 // arch/Console.h — 终端控制（平台无关接口）
 
-#ifdef _LINUX
-#include "Console_linux.h"
-#elif defined(_WIN)
+#if defined(_WIN32)
 #include "Console_windows.h"
+#elif defined(_LINUX)
+#include "Console_linux.h"
 #endif
 
 namespace arch {

@@ -17,7 +17,7 @@ void 初始化窗口()
     fflush(stdout);
 
     // 设置 ANSI 支持标志
-#if defined(_WIN)
+#if defined(_WIN32)
     // Windows 需要检测 ANSI 支持
     全局内容.支持ANSI = true; // initConsole 已启用
 #elif defined(_LINUX)

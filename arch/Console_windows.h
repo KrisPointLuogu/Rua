@@ -6,9 +6,7 @@
 #endif
 #include <windows.h>
 
-#ifdef _DEBUG
 #pragma comment(lib, "advapi32.lib")
-#endif
 
 namespace arch {
 namespace detail {

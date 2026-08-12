@@ -3,10 +3,10 @@
 
 #include <string>
 
-#ifdef _LINUX
-#include "FileSystem_linux.h"
-#elif defined(_WIN)
+#if defined(_WIN32)
 #include "FileSystem_windows.h"
+#elif defined(_LINUX)
+#include "FileSystem_linux.h"
 #endif
 
 namespace arch {

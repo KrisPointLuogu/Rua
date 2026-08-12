@@ -5,10 +5,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#ifdef _LINUX
-#include "JITPlatform_linux.h"
-#elif defined(_WIN)
+#if defined(_WIN32)
 #include "JITPlatform_windows.h"
+#elif defined(_LINUX)
+#include "JITPlatform_linux.h"
 #endif
 
 namespace arch {
