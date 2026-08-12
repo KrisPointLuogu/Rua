@@ -13,6 +13,7 @@ enum class TACOpcode : uint8_t {
     CALL, RET,
     PUSH, PRINT,
     ARRNEW, ARRGET, ARRSET,
+    ARRDIMSET, ARRGETN, ARRSETN,
     HALT
 };
 
@@ -187,6 +188,48 @@ public:
     }
 };
 
+// 数组对象 dims[dimIdx] = val（记录第 dimIdx 维长度）
+class TACArrayDimSet : public TACInst {
+public:
+    TACValue arr, val;
+    int dimIdx;
+    TACArrayDimSet(TACValue arr, int dimIdx, TACValue val)
+        : arr(arr), dimIdx(dimIdx), val(val) {}
+    TACOpcode getOpcode() const override { return TACOpcode::ARRDIMSET; }
+    int accept(TACVisitor& v) override;
+    std::unique_ptr<TACInst> clone() const override {
+        return std::make_unique<TACArrayDimSet>(arr, dimIdx, val);
+    }
+};
+
+// rd = 数组[arr][栈下标...]，下标个数 = indexCount（变长下标读取）
+class TACArrayGetN : public TACInst {
+public:
+    TACValue rd, arr;
+    int indexCount;
+    TACArrayGetN(TACValue rd, TACValue arr, int indexCount)
+        : rd(rd), arr(arr), indexCount(indexCount) {}
+    TACOpcode getOpcode() const override { return TACOpcode::ARRGETN; }
+    int accept(TACVisitor& v) override;
+    std::unique_ptr<TACInst> clone() const override {
+        return std::make_unique<TACArrayGetN>(rd, arr, indexCount);
+    }
+};
+
+// 数组[arr][栈下标...] = val，下标个数 = indexCount（变长下标写入）
+class TACArraySetN : public TACInst {
+public:
+    TACValue val, arr;
+    int indexCount;
+    TACArraySetN(TACValue val, TACValue arr, int indexCount)
+        : val(val), arr(arr), indexCount(indexCount) {}
+    TACOpcode getOpcode() const override { return TACOpcode::ARRSETN; }
+    int accept(TACVisitor& v) override;
+    std::unique_ptr<TACInst> clone() const override {
+        return std::make_unique<TACArraySetN>(val, arr, indexCount);
+    }
+};
+
 // return rs (rs is the return value register)
 class TACRet : public TACInst {
 public:
@@ -233,6 +276,9 @@ public:
     virtual int visit(TACArrayNew& n) = 0;
     virtual int visit(TACArrayGet& n) = 0;
     virtual int visit(TACArraySet& n) = 0;
+    virtual int visit(TACArrayDimSet& n) = 0;
+    virtual int visit(TACArrayGetN& n) = 0;
+    virtual int visit(TACArraySetN& n) = 0;
 };
 
 // TACFunction: one function's TAC representation

@@ -23,6 +23,12 @@ typedef int64_t (*JITFunc)(int64_t, int64_t, int64_t, int64_t, int64_t,
 using std::string;
 using std::vector;
 
+// 运行时数组对象：各维长度 + 扁平数据（row-major）
+struct 数组对象 {
+    std::vector<int> dims;
+    std::vector<Value> data;
+};
+
 void Value::print() const
 {
     if (type == ValueType::INTEGER)
@@ -84,7 +90,9 @@ void VM::run(const BytecodeProgram& prog)
     int _sp = -1, _cp = -1, _fs = -1, _fp = 0;
     Value* base = s;
     vector<string> strPool;
-    vector<vector<Value>> arrayPool;
+    vector<数组对象> arrayPool;
+    // ARRGETN/ARRSETN 的变长下标缓冲（须在分派标签前声明，避免跨标签构造）
+    vector<int> 数组下标;
 
 #if defined(__GNUC__) || defined(__clang__)
     // GCC/Clang: computed goto（最快）
@@ -93,7 +101,7 @@ void VM::run(const BytecodeProgram& prog)
         &&op_mul,   &&op_div,  &&op_mod,  &&op_eq,   &&op_ne,   &&op_lt,
         &&op_gt,    &&op_jmp,  &&op_jif,  &&op_push, &&op_call, &&op_ret,
         &&op_print, &&op_le,   &&op_ge,   &&op_arrnew, &&op_arrget,
-        &&op_arrset,
+        &&op_arrset, &&op_arrdimset, &&op_arrgetn, &&op_arrsetn,
     };
 
 #define I32(a)                                                                 \
@@ -258,8 +266,23 @@ op_arrnew: {
     int rd = code[ip + 1], rsSize = code[ip + 2], rsInit = code[ip + 3];
     int size = base[rsSize].data;
     if (size < 1) throw VMError("数组长度必须为正数");
-    arrayPool.emplace_back(size, base[rsInit]);
+    arrayPool.push_back(数组对象{ { size }, vector<Value>(size, base[rsInit]) });
     base[rd] = Value(static_cast<int>(arrayPool.size()) - 1, ValueType::ARRAY);
+    ip += 8;
+    NEXT();
+}
+OP_CASE(ARRDIMSET)
+op_arrdimset: {
+    // rd 槽位未使用，rs1=数组句柄，rs2=维度长度，extra=维度索引
+    int rsArr = code[ip + 2], rsVal = code[ip + 3];
+    int dimIdx = I32(ip + 4);
+    Value& h = base[rsArr];
+    if (h.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
+    auto& arr = arrayPool[h.data];
+    if (dimIdx < 0) throw VMError("数组维度索引非法");
+    if (dimIdx >= static_cast<int>(arr.dims.size()))
+        arr.dims.resize(dimIdx + 1, 1);
+    arr.dims[dimIdx] = base[rsVal].data;
     ip += 8;
     NEXT();
 }
@@ -269,10 +292,11 @@ op_arrget: {
     Value& h = base[rsArr];
     if (h.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
     auto& arr = arrayPool[h.data];
+    if (arr.dims.size() > 1) throw VMError("数组下标数量不足");
     int idx = base[rsIdx].data;
-    if (idx < 0 || idx >= static_cast<int>(arr.size()))
+    if (idx < 0 || idx >= static_cast<int>(arr.data.size()))
         throw VMError("数组下标越界");
-    base[rd] = arr[idx];
+    base[rd] = arr.data[idx];
     ip += 8;
     NEXT();
 }
@@ -282,10 +306,81 @@ op_arrset: {
     Value& h = base[rsArr];
     if (h.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
     auto& arr = arrayPool[h.data];
+    if (arr.dims.size() > 1) throw VMError("数组下标数量不足");
     int idx = base[rsIdx].data;
-    if (idx < 0 || idx >= static_cast<int>(arr.size()))
+    if (idx < 0 || idx >= static_cast<int>(arr.data.size()))
         throw VMError("数组下标越界");
-    arr[idx] = base[rsVal];
+    arr.data[idx] = base[rsVal];
+    ip += 8;
+    NEXT();
+}
+OP_CASE(ARRGETN)
+op_arrgetn: {
+    int rd = code[ip + 1], rsArr = code[ip + 2];
+    int count = I32(ip + 4);
+    Value& h = base[rsArr];
+    if (h.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
+    数组下标.resize(count);
+    for (int k = count - 1; k >= 0; k--) { 数组下标[k] = s[_sp].data; _sp--; }
+    int arrIdx = h.data;
+    int consumed = 0;
+    while (consumed < count) {
+        auto& arr = arrayPool[arrIdx];
+        int n = static_cast<int>(arr.dims.size());
+        if (n <= 0 || consumed + n > count) throw VMError("数组下标数量不足");
+        int local = 0;
+        for (int k = 0; k < n; k++) {
+            int idx = 数组下标[consumed + k];
+            int dim = arr.dims[k];
+            if (idx < 0 || idx >= dim) throw VMError("数组下标越界");
+            local = (k == 0) ? idx : local * dim + idx;
+        }
+        consumed += n;
+        if (consumed == count) {
+            base[rd] = arr.data[local];
+            break;
+        }
+        Value elem = arr.data[local];
+        if (elem.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
+        arrIdx = elem.data;
+    }
+    ip += 8;
+    NEXT();
+}
+OP_CASE(ARRSETN)
+op_arrsetn: {
+    int rsVal = code[ip + 1], rsArr = code[ip + 2];
+    int count = I32(ip + 4);
+    Value& h = base[rsArr];
+    if (h.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
+    数组下标.resize(count);
+    for (int k = count - 1; k >= 0; k--) { 数组下标[k] = s[_sp].data; _sp--; }
+    int arrIdx = h.data;
+    int consumed = 0;
+    int finalArrIdx = -1;
+    int finalLocal = -1;
+    while (consumed < count) {
+        auto& arr = arrayPool[arrIdx];
+        int n = static_cast<int>(arr.dims.size());
+        if (n <= 0 || consumed + n > count) throw VMError("数组下标数量不足");
+        int local = 0;
+        for (int k = 0; k < n; k++) {
+            int idx = 数组下标[consumed + k];
+            int dim = arr.dims[k];
+            if (idx < 0 || idx >= dim) throw VMError("数组下标越界");
+            local = (k == 0) ? idx : local * dim + idx;
+        }
+        consumed += n;
+        if (consumed == count) {
+            finalArrIdx = arrIdx;
+            finalLocal = local;
+            break;
+        }
+        Value elem = arr.data[local];
+        if (elem.type != ValueType::ARRAY) throw VMError("索引的目标不是数组");
+        arrIdx = elem.data;
+    }
+    arrayPool[finalArrIdx].data[finalLocal] = base[rsVal];
     ip += 8;
     NEXT();
 }

@@ -13,6 +13,7 @@ public:
     int visit(Block& node) override;
     int visit(VarDecl& node) override;
     int visit(ArrayDecl& node) override;
+    int visit(ArrayLiteral& node) override;
     int visit(IfStmt& node) override;
     int visit(WhileStmt& node) override;
     int visit(ReturnStmt& node) override;
@@ -60,8 +61,23 @@ private:
     void emitArrayNew(TACValue rd, TACValue size, TACValue init);
     void emitArrayGet(TACValue rd, TACValue arr, TACValue idx);
     void emitArraySet(TACValue val, TACValue arr, TACValue idx);
+    void emitArrayDimSet(TACValue arr, int dimIdx, TACValue val);
+    void emitArrayGetN(TACValue rd, TACValue arr, int indexCount);
+    void emitArraySetN(TACValue val, TACValue arr, int indexCount);
     void emitRet(TACValue rs);
     void emitHalt();
     void emitNop();
     int curIdx();
+
+    // 常量折叠：长度表达式仅限数字字面量 + 算术运算
+    bool 折叠常量表达式(const ASTNode* node, int& out);
+    // 将初始化列表展平为 (平铺偏移, 表达式) 对（嵌套时按 row-major 定位）
+    struct 初始化项 {
+        int offset;
+        ASTNode* expr;
+    };
+    void 展平初始化(ArrayLiteral* lit, const std::vector<int>& constDims,
+                   int level, int baseOffset, std::vector<初始化项>& out);
+    // 收集索引链（外层→内层），返回链长
+    int 收集索引链(IndexExpr& node, std::vector<IndexExpr*>& out);
 };

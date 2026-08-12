@@ -16,6 +16,7 @@ class Function;
 class Block;
 class VarDecl;
 class ArrayDecl;
+class ArrayLiteral;
 class IfStmt;
 class WhileStmt;
 class ReturnStmt;
@@ -38,6 +39,7 @@ class ASTVisitor {
     virtual int visit(Block& node) = 0;
     virtual int visit(VarDecl& node) = 0;
     virtual int visit(ArrayDecl& node) = 0;
+    virtual int visit(ArrayLiteral& node) = 0;
     virtual int visit(IfStmt& node) = 0;
     virtual int visit(WhileStmt& node) = 0;
     virtual int visit(ReturnStmt& node) = 0;
@@ -59,6 +61,7 @@ enum class NodeType {
     BLOCK,
     VAR_DECL,
     ARRAY_DECL,
+    ARRAY_LITERAL,
     IF_STMT,
     WHILE_STMT,
     RETURN_STMT,
@@ -120,9 +123,19 @@ class VarDecl : public ASTNode {
 class ArrayDecl : public ASTNode {
   public:
     std::string name;
-    int size;
+    // 各维度长度表达式（声明时省略初始化时 initialValue 为 nullptr）
+    std::vector<std::unique_ptr<ASTNode>> sizes;
     std::unique_ptr<ASTNode> initialValue;
     NodeType getType() const override { return NodeType::ARRAY_DECL; }
+    int accept(ASTVisitor& visitor) override { return visitor.visit(*this); }
+};
+
+// 数组初始化列表：{元素1, 元素2, ...}
+// 元素可以是表达式，也可以是嵌套的子列表（多维数组字面量）
+class ArrayLiteral : public ASTNode {
+  public:
+    std::vector<std::unique_ptr<ASTNode>> elements;
+    NodeType getType() const override { return NodeType::ARRAY_LITERAL; }
     int accept(ASTVisitor& visitor) override { return visitor.visit(*this); }
 };
 

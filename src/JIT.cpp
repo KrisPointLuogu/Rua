@@ -415,7 +415,8 @@ bool JITCompiler::canJIT(const FunctionInfo& func, const BytecodeProgram& prog)
             if (op == Opcode::MOVS) return false;
             if (op == Opcode::DIV || op == Opcode::MOD) return false;
             if (op == Opcode::ARRNEW || op == Opcode::ARRGET
-                || op == Opcode::ARRSET)
+                || op == Opcode::ARRSET || op == Opcode::ARRDIMSET
+                || op == Opcode::ARRGETN || op == Opcode::ARRSETN)
                 return false;
         }
         return true;

@@ -69,6 +69,20 @@ bool DeadCodeElimination::run(TACProgram& program, int funcIdx)
             if (s->val.kind == TACValueKind::TEMP) usedTemps.insert(s->val.index);
             if (s->arr.kind == TACValueKind::TEMP) usedTemps.insert(s->arr.index);
             if (s->idx.kind == TACValueKind::TEMP) usedTemps.insert(s->idx.index);
+        } else if (op == TACOpcode::ARRDIMSET) {
+            auto* d = static_cast<TACArrayDimSet*>(inst.get());
+            if (d->arr.kind == TACValueKind::TEMP)
+                usedTemps.insert(d->arr.index);
+            if (d->val.kind == TACValueKind::TEMP)
+                usedTemps.insert(d->val.index);
+        } else if (op == TACOpcode::ARRGETN) {
+            auto* g = static_cast<TACArrayGetN*>(inst.get());
+            if (g->rd.kind == TACValueKind::TEMP) usedTemps.insert(g->rd.index);
+            if (g->arr.kind == TACValueKind::TEMP) usedTemps.insert(g->arr.index);
+        } else if (op == TACOpcode::ARRSETN) {
+            auto* s = static_cast<TACArraySetN*>(inst.get());
+            if (s->val.kind == TACValueKind::TEMP) usedTemps.insert(s->val.index);
+            if (s->arr.kind == TACValueKind::TEMP) usedTemps.insert(s->arr.index);
         }
     }
 

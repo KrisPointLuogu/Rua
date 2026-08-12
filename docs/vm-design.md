@@ -99,6 +99,18 @@ greg(r) = s[fs[_fs] + r]    // 通过当前帧基址访问寄存器
 | 0x15 | ARRNEW rd, rsSize, rsInit | 新建数组并广播初始化 |
 | 0x16 | ARRGET rd, rsArr, rsIdx | rd = 数组[rsArr][rsIdx] |
 | 0x17 | ARRSET rsVal, rsArr, rsIdx | 数组[rsArr][rsIdx] = rsVal |
+| 0x18 | ARRDIMSET rsArr, rsVal, #dimIdx | 记录数组第 dimIdx 维长度为 rsVal |
+| 0x19 | ARRGETN rd, rsArr, #count | 变长下标读取：弹 count 个下标后 rd = 数组[...] |
+| 0x1A | ARRSETN rsVal, rsArr, #count | 变长下标写入：弹 count 个下标后 数组[...] = rsVal |
+
+## 数组运行时
+
+数组池元素为 `数组对象 { dims: vector<int>, data: vector<Value> }`：
+
+- 扁平存储（row-major），`dims` 记录各维长度；一维数组 `dims=[size]`。
+- `ARRNEW` 建一维数组；多维声明由生成器发出 `ARRDIMSET` 逐维写入长度。
+- `ARRGETN`/`ARRSETN` 从值栈弹出 count 个下标，逐维检查并累加平铺偏移；若当前数组维度已耗尽而仍有下标，则沿元素（数组句柄）继续解析——因此多维数组经函数参数等不透明句柄访问时同样正确。
+- 越界抛 `数组下标越界`；下标数量不足抛 `数组下标数量不足`；索引非数组抛 `索引的目标不是数组`。
 
 ## 关键代码
 

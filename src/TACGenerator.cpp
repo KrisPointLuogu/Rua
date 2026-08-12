@@ -110,6 +110,18 @@ void TACGenerator::emitArraySet(TACValue val, TACValue arr, TACValue idx) {
     emit(std::make_unique<TACArraySet>(val, arr, idx));
 }
 
+void TACGenerator::emitArrayDimSet(TACValue arr, int dimIdx, TACValue val) {
+    emit(std::make_unique<TACArrayDimSet>(arr, dimIdx, val));
+}
+
+void TACGenerator::emitArrayGetN(TACValue rd, TACValue arr, int indexCount) {
+    emit(std::make_unique<TACArrayGetN>(rd, arr, indexCount));
+}
+
+void TACGenerator::emitArraySetN(TACValue val, TACValue arr, int indexCount) {
+    emit(std::make_unique<TACArraySetN>(val, arr, indexCount));
+}
+
 void TACGenerator::emitRet(TACValue rs) {
     emit(std::make_unique<TACRet>(rs));
 }
@@ -238,16 +250,166 @@ int TACGenerator::visit(ArrayDecl& node) {
     int slot = allocReg(node.name);
 
     tempReg = totalReg;
-    int sizeReg = allocTemp();
-    emitMovI(TACValue(TACValueKind::TEMP, sizeReg), node.size);
 
-    int initReg = node.initialValue->accept(*this);
+    int rank = static_cast<int>(node.sizes.size());
+    std::vector<int> constDims(rank, -1);
+    std::vector<int> dimRegs(rank, -1);
+
+    // 各维度：常量直接 MOVI，动态求值
+    for (int i = 0; i < rank; i++) {
+        int 常量值;
+        if (折叠常量表达式(node.sizes[i].get(), 常量值)) {
+            constDims[i] = 常量值;
+            int r = allocTemp();
+            emitMovI(TACValue(TACValueKind::TEMP, r), 常量值);
+            dimRegs[i] = r;
+        } else {
+            dimRegs[i] = node.sizes[i]->accept(*this);
+        }
+    }
+
+    // 总长度 = 各维乘积
+    int totalSizeReg = dimRegs[0];
+    for (int i = 1; i < rank; i++) {
+        int r = allocTemp();
+        emitBinary(TACOpcode::MUL, TACValue(TACValueKind::TEMP, r),
+                   TACValue(TACValueKind::TEMP, totalSizeReg),
+                   TACValue(TACValueKind::TEMP, dimRegs[i]));
+        totalSizeReg = r;
+    }
+
+    // 初始值：广播（单标量）或 0
+    ArrayLiteral* 列表 = nullptr;
+    int initReg;
+    bool 已设初值 = false;
+    if (node.initialValue) {
+        if (auto* lit = dynamic_cast<ArrayLiteral*>(node.initialValue.get())) {
+            if (lit->elements.size() == 1
+                && !dynamic_cast<ArrayLiteral*>(lit->elements[0].get())) {
+                initReg = lit->elements[0]->accept(*this);
+                已设初值 = true;
+            } else {
+                列表 = lit;
+            }
+        } else {
+            initReg = node.initialValue->accept(*this);
+            已设初值 = true;
+        }
+    }
+    if (!已设初值) {
+        int zeroReg = allocTemp();
+        emitMovI(TACValue(TACValueKind::TEMP, zeroReg), 0);
+        initReg = zeroReg;
+    }
+
     emitArrayNew(TACValue(TACValueKind::VAR, slot),
-                 TACValue(TACValueKind::TEMP, sizeReg),
+                 TACValue(TACValueKind::TEMP, totalSizeReg),
                  TACValue(TACValueKind::TEMP, initReg));
+
+    // 多值 / 嵌套初始化：按 row-major 平铺偏移逐个写入
+    // （必须在 ARRDIMSET 之前，此时数组仍是 1 维、ARRSET 接受扁平偏移）
+    if (列表) {
+        std::vector<初始化项> items;
+        展平初始化(列表, constDims, 0, 0, items);
+        for (auto& item : items) {
+            int offReg = allocTemp();
+            emitMovI(TACValue(TACValueKind::TEMP, offReg), item.offset);
+            int valReg = item.expr->accept(*this);
+            emitArraySet(TACValue(TACValueKind::TEMP, valReg),
+                         TACValue(TACValueKind::VAR, slot),
+                         TACValue(TACValueKind::TEMP, offReg));
+        }
+    }
+
+    // 记录各维长度
+    for (int i = 0; i < rank; i++) {
+        emitArrayDimSet(TACValue(TACValueKind::VAR, slot), i,
+                        TACValue(TACValueKind::TEMP, dimRegs[i]));
+    }
 
     tempReg = totalReg;
     return slot;
+}
+
+int TACGenerator::visit(ArrayLiteral& node) {
+    // 数组字面量仅作为 ArrayDecl 的初始化出现，不会被单独求值
+    (void)node;
+    return 0;
+}
+
+bool TACGenerator::折叠常量表达式(const ASTNode* node, int& out) {
+    if (node->getType() == NodeType::NUMBER_LITERAL) {
+        out = static_cast<const NumberLiteral*>(node)->value;
+        return true;
+    }
+    if (node->getType() == NodeType::BINARY_EXPR) {
+        const auto* b = static_cast<const BinaryExpr*>(node);
+        int 左, 右;
+        if (!折叠常量表达式(b->left.get(), 左) || !折叠常量表达式(b->right.get(), 右))
+            return false;
+        switch (b->op) {
+        case TK_加号: out = 左 + 右; return true;
+        case TK_减号: out = 左 - 右; return true;
+        case TK_乘号: out = 左 * 右; return true;
+        case TK_除号:
+            if (右 == 0) return false;
+            out = 左 / 右;
+            return true;
+        case TK_模:
+            if (右 == 0) return false;
+            out = 左 % 右;
+            return true;
+        default: return false;
+        }
+    }
+    return false;
+}
+
+void TACGenerator::展平初始化(ArrayLiteral* lit,
+                             const std::vector<int>& constDims, int level,
+                             int baseOffset, std::vector<初始化项>& out) {
+    // 本层元素全是标量（叶子层）→ 顺序填充；否则按行距定位各子列表
+    bool 叶子层 = true;
+    for (auto& el : lit->elements) {
+        if (dynamic_cast<ArrayLiteral*>(el.get())) {
+            叶子层 = false;
+            break;
+        }
+    }
+    if (叶子层) {
+        for (size_t i = 0; i < lit->elements.size(); i++) {
+            out.push_back({ baseOffset + static_cast<int>(i),
+                            lit->elements[i].get() });
+        }
+        return;
+    }
+
+    // 本层行距 = 后段维度乘积（语义分析已保证其为常量）
+    int stride = 1;
+    for (int i = level + 1; i < static_cast<int>(constDims.size()); i++)
+        stride *= constDims[i];
+
+    for (size_t i = 0; i < lit->elements.size(); i++) {
+        auto& el = lit->elements[i];
+        int offset = baseOffset + static_cast<int>(i) * stride;
+        if (auto* sub = dynamic_cast<ArrayLiteral*>(el.get())) {
+            展平初始化(sub, constDims, level + 1, offset, out);
+        } else {
+            out.push_back({ offset, el.get() });
+        }
+    }
+}
+
+int TACGenerator::收集索引链(IndexExpr& node, std::vector<IndexExpr*>& out) {
+    IndexExpr* cur = &node;
+    while (true) {
+        out.push_back(cur);
+        if (auto* inner = dynamic_cast<IndexExpr*>(cur->base.get()))
+            cur = inner;
+        else
+            break;
+    }
+    return static_cast<int>(out.size());
 }
 
 int TACGenerator::visit(IfStmt& node) {
@@ -341,12 +503,33 @@ int TACGenerator::visit(ExprStmt& node) {
 int TACGenerator::visit(BinaryExpr& node) {
     if (node.op == TK_等号) {
         if (auto* idx = dynamic_cast<IndexExpr*>(node.left.get())) {
-            int arrReg = idx->base->accept(*this);
-            int idxReg = idx->index->accept(*this);
+            std::vector<IndexExpr*> chain;
+            收集索引链(*idx, chain);
+
+            if (chain.size() == 1) {
+                // 深度 1 → 单索引快路径
+                int arrReg = idx->base->accept(*this);
+                int idxReg = idx->index->accept(*this);
+                int valReg = node.right->accept(*this);
+                emitArraySet(TACValue(TACValueKind::TEMP, valReg),
+                             TACValue(TACValueKind::TEMP, arrReg),
+                             TACValue(TACValueKind::TEMP, idxReg));
+                int resultReg = allocTemp();
+                emitMov(TACValue(TACValueKind::TEMP, resultReg),
+                        TACValue(TACValueKind::TEMP, valReg));
+                return resultReg;
+            }
+
+            // 深度 ≥ 2 → 变长下标写入
+            int arrReg = chain.back()->base->accept(*this);
+            for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+                int idxReg = (*it)->index->accept(*this);
+                emitParm(TACValue(TACValueKind::TEMP, idxReg));
+            }
             int valReg = node.right->accept(*this);
-            emitArraySet(TACValue(TACValueKind::TEMP, valReg),
-                         TACValue(TACValueKind::TEMP, arrReg),
-                         TACValue(TACValueKind::TEMP, idxReg));
+            emitArraySetN(TACValue(TACValueKind::TEMP, valReg),
+                          TACValue(TACValueKind::TEMP, arrReg),
+                          static_cast<int>(chain.size()));
             int resultReg = allocTemp();
             emitMov(TACValue(TACValueKind::TEMP, resultReg),
                     TACValue(TACValueKind::TEMP, valReg));
@@ -460,12 +643,29 @@ int TACGenerator::visit(Identifier& node) {
 }
 
 int TACGenerator::visit(IndexExpr& node) {
-    // 基表达式求值：数组变量取其寄存器，嵌套索引取其 ARRGET 结果（数组句柄）
-    int arrReg = node.base->accept(*this);
-    int idxReg = node.index->accept(*this);
+    std::vector<IndexExpr*> chain;
+    收集索引链(node, chain);
+
+    // 深度 1 → 单索引快路径
+    if (chain.size() == 1) {
+        int arrReg = node.base->accept(*this);
+        int idxReg = node.index->accept(*this);
+        int resultReg = allocTemp();
+        emitArrayGet(TACValue(TACValueKind::TEMP, resultReg),
+                     TACValue(TACValueKind::TEMP, arrReg),
+                     TACValue(TACValueKind::TEMP, idxReg));
+        return resultReg;
+    }
+
+    // 深度 ≥ 2 → 变长下标读取：先求基表达式，再按源顺序求值下标并 PUSH
+    int arrReg = chain.back()->base->accept(*this);
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+        int idxReg = (*it)->index->accept(*this);
+        emitParm(TACValue(TACValueKind::TEMP, idxReg));
+    }
     int resultReg = allocTemp();
-    emitArrayGet(TACValue(TACValueKind::TEMP, resultReg),
-                 TACValue(TACValueKind::TEMP, arrReg),
-                 TACValue(TACValueKind::TEMP, idxReg));
+    emitArrayGetN(TACValue(TACValueKind::TEMP, resultReg),
+                  TACValue(TACValueKind::TEMP, arrReg),
+                  static_cast<int>(chain.size()));
     return resultReg;
 }
