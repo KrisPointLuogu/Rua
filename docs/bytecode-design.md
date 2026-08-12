@@ -69,9 +69,11 @@ MOVI rT, 0; MOV r0, rT; RET // 默认返回值
 | `a >= b` | `LT rT, rL, rR; MOVI rZ, 0; EQ rR, rT, rZ` |
 | `喵叫(x)` | `... x → rX; PRINT rX` |
 | `fib(args)` | `PUSH rDummy; ... arg → rA; PUSH rA; CALL fib; MOV rT, r0` |
-| `数组 声明` | `MOVI rSize, len; ...init → rV; ARRNEW rArr, rSize, rV` |
+| `数组 声明` | 逐维求值 → 总长乘积 → `ARRNEW rArr, rSize, rInit` → 初始化列表 `ARRSET rV, rArr, rOff`（偏移为编译期常量）→ 各维 `ARRDIMSET rArr, #dim, rDim` |
 | `示例[0]` | `...idx → rI; ARRGET rT, rArr, rI` |
 | `示例[0] = v` | `...idx → rI; ...v → rV; ARRSET rV, rArr, rI` |
+| `矩阵[i][j]` | `...i → rI; PUSH rI; ...j → rJ; PUSH rJ; ARRGETN rT, rArr, #2` |
+| `矩阵[i][j] = v` | `...i → rI; PUSH rI; ...j → rJ; PUSH rJ; ...v → rV; ARRSETN rV, rArr, #2` |
 | `如果 cond 那么 {t} 否则 {e}` | `... cond; JIF rCond, else; (t); JMP after; else: (e); after:` |
 | `当 cond 那么 {body}` | `loop: ... cond; JIF rCond, end; (body); JMP loop; end:` |
 

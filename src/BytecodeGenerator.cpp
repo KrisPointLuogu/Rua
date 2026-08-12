@@ -124,6 +124,9 @@ static const char* opcodeName(Opcode op)
     case Opcode::ARRNEW: return "ARRNEW";
     case Opcode::ARRGET: return "ARRGET";
     case Opcode::ARRSET: return "ARRSET";
+    case Opcode::ARRDIMSET: return "ARRDIMSET";
+    case Opcode::ARRGETN: return "ARRGETN";
+    case Opcode::ARRSETN: return "ARRSETN";
     default: return "???";
     }
 }
@@ -209,6 +212,18 @@ void BytecodeProgram::print() const
         case Opcode::ARRSET:
             std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", r"
                       << (int)rs2;
+            break;
+        case Opcode::ARRDIMSET:
+            std::cout << " r" << (int)rs1 << ", dim" << extra << ", r"
+                      << (int)rs2;
+            break;
+        case Opcode::ARRGETN:
+            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", ["
+                      << extra << " 下标]";
+            break;
+        case Opcode::ARRSETN:
+            std::cout << " r" << (int)rd << ", r" << (int)rs1 << ", ["
+                      << extra << " 下标]";
             break;
         default:
             if (extra) std::cout << " " << extra;
@@ -410,14 +425,166 @@ int BytecodeGenerator::visit(ArrayDecl& node)
     int slot = allocReg(node.name);
 
     tempReg = totalReg;
-    int sizeReg = allocTemp();
-    program.emit(Opcode::MOVI, sizeReg, 0, 0, program.addConstant(node.size));
 
-    int initReg = node.initialValue->accept(*this);
-    program.emit(Opcode::ARRNEW, slot, sizeReg, initReg);
+    int rank = static_cast<int>(node.sizes.size());
+    std::vector<int> constDims(rank, -1);
+    std::vector<int> dimRegs(rank, -1);
+
+    // 各维度：常量直接 MOVI，动态求值
+    for (int i = 0; i < rank; i++) {
+        int 常量值;
+        if (折叠常量表达式(node.sizes[i].get(), 常量值)) {
+            constDims[i] = 常量值;
+            int r = allocTemp();
+            program.emit(Opcode::MOVI, r, 0, 0, program.addConstant(常量值));
+            dimRegs[i] = r;
+        } else {
+            dimRegs[i] = node.sizes[i]->accept(*this);
+        }
+    }
+
+    // 总长度 = 各维乘积
+    int totalSizeReg = dimRegs[0];
+    for (int i = 1; i < rank; i++) {
+        int r = allocTemp();
+        program.emit(Opcode::MUL, r, totalSizeReg, dimRegs[i]);
+        totalSizeReg = r;
+    }
+
+    // 初始值：广播（单标量）或 0
+    ArrayLiteral* 列表 = nullptr;
+    int initReg;
+    bool 已设初值 = false;
+    if (node.initialValue) {
+        if (auto* lit = dynamic_cast<ArrayLiteral*>(node.initialValue.get())) {
+            if (lit->elements.size() == 1
+                && !dynamic_cast<ArrayLiteral*>(lit->elements[0].get())) {
+                initReg = lit->elements[0]->accept(*this);
+                已设初值 = true;
+            } else {
+                列表 = lit;
+            }
+        } else {
+            initReg = node.initialValue->accept(*this);
+            已设初值 = true;
+        }
+    }
+    if (!已设初值) {
+        int zeroReg = allocTemp();
+        program.emit(Opcode::MOVI, zeroReg, 0, 0, program.addConstant(0));
+        initReg = zeroReg;
+    }
+
+    program.emit(Opcode::ARRNEW, slot, totalSizeReg, initReg);
+
+    // 多值 / 嵌套初始化：按 row-major 平铺偏移逐个写入
+    // （必须在 ARRDIMSET 之前，此时数组仍是 1 维、ARRSET 接受扁平偏移）
+    if (列表) {
+        std::vector<初始化项> items;
+        展平初始化(列表, constDims, 0, 0, items);
+        for (auto& item : items) {
+            int offReg = allocTemp();
+            program.emit(Opcode::MOVI, offReg, 0, 0,
+                         program.addConstant(item.offset));
+            int valReg = item.expr->accept(*this);
+            program.emit(Opcode::ARRSET, valReg, slot, offReg);
+        }
+    }
+
+    // 记录各维长度
+    for (int i = 0; i < rank; i++) {
+        program.emit(Opcode::ARRDIMSET, 0, slot, dimRegs[i], i);
+    }
 
     tempReg = totalReg;
     return slot;
+}
+
+int BytecodeGenerator::visit(ArrayLiteral& node)
+{
+    // 数组字面量仅作为 ArrayDecl 的初始化出现，不会被单独求值
+    (void)node;
+    return 0;
+}
+
+bool BytecodeGenerator::折叠常量表达式(const ASTNode* node, int& out)
+{
+    if (node->getType() == NodeType::NUMBER_LITERAL) {
+        out = static_cast<const NumberLiteral*>(node)->value;
+        return true;
+    }
+    if (node->getType() == NodeType::BINARY_EXPR) {
+        const auto* b = static_cast<const BinaryExpr*>(node);
+        int 左, 右;
+        if (!折叠常量表达式(b->left.get(), 左) || !折叠常量表达式(b->right.get(), 右))
+            return false;
+        switch (b->op) {
+        case TK_加号: out = 左 + 右; return true;
+        case TK_减号: out = 左 - 右; return true;
+        case TK_乘号: out = 左 * 右; return true;
+        case TK_除号:
+            if (右 == 0) return false;
+            out = 左 / 右;
+            return true;
+        case TK_模:
+            if (右 == 0) return false;
+            out = 左 % 右;
+            return true;
+        default: return false;
+        }
+    }
+    return false;
+}
+
+void BytecodeGenerator::展平初始化(ArrayLiteral* lit,
+                                  const std::vector<int>& constDims,
+                                  int level, int baseOffset,
+                                  std::vector<初始化项>& out)
+{
+    // 本层元素全是标量（叶子层）→ 顺序填充；否则按行距定位各子列表
+    bool 叶子层 = true;
+    for (auto& el : lit->elements) {
+        if (dynamic_cast<ArrayLiteral*>(el.get())) {
+            叶子层 = false;
+            break;
+        }
+    }
+    if (叶子层) {
+        for (size_t i = 0; i < lit->elements.size(); i++) {
+            out.push_back({ baseOffset + static_cast<int>(i),
+                            lit->elements[i].get() });
+        }
+        return;
+    }
+
+    // 本层行距 = 后段维度乘积（语义分析已保证其为常量）
+    int stride = 1;
+    for (int i = level + 1; i < static_cast<int>(constDims.size()); i++)
+        stride *= constDims[i];
+
+    for (size_t i = 0; i < lit->elements.size(); i++) {
+        auto& el = lit->elements[i];
+        int offset = baseOffset + static_cast<int>(i) * stride;
+        if (auto* sub = dynamic_cast<ArrayLiteral*>(el.get())) {
+            展平初始化(sub, constDims, level + 1, offset, out);
+        } else {
+            out.push_back({ offset, el.get() });
+        }
+    }
+}
+
+int BytecodeGenerator::收集索引链(IndexExpr& node,
+                                std::vector<IndexExpr*>& out)
+{
+    IndexExpr* cur = &node;
+    while (true) {
+        out.push_back(cur);
+        if (auto* inner = dynamic_cast<IndexExpr*>(cur->base.get()))
+            cur = inner;
+        else
+            break;
+    }
+    return static_cast<int>(out.size());
 }
 
 int BytecodeGenerator::visit(IfStmt& node)
@@ -497,10 +664,29 @@ int BytecodeGenerator::visit(BinaryExpr& node)
     // 赋值
     if (node.op == TK_等号) {
         if (auto* idx = dynamic_cast<IndexExpr*>(node.left.get())) {
-            int arrReg = idx->base->accept(*this);
-            int idxReg = idx->index->accept(*this);
+            std::vector<IndexExpr*> chain;
+            收集索引链(*idx, chain);
+
+            if (chain.size() == 1) {
+                // 深度 1 → 单索引快路径
+                int arrReg = idx->base->accept(*this);
+                int idxReg = idx->index->accept(*this);
+                int valReg = node.right->accept(*this);
+                program.emit(Opcode::ARRSET, valReg, arrReg, idxReg);
+                int resultReg = allocTemp();
+                program.emit(Opcode::MOV, resultReg, valReg);
+                return resultReg;
+            }
+
+            // 深度 ≥ 2 → 变长下标写入
+            int arrReg = chain.back()->base->accept(*this);
+            for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+                int idxReg = (*it)->index->accept(*this);
+                program.emit(Opcode::PUSH, 0, idxReg);
+            }
             int valReg = node.right->accept(*this);
-            program.emit(Opcode::ARRSET, valReg, arrReg, idxReg);
+            program.emit(Opcode::ARRSETN, valReg, arrReg, 0,
+                         static_cast<int>(chain.size()));
             int resultReg = allocTemp();
             program.emit(Opcode::MOV, resultReg, valReg);
             return resultReg;
@@ -643,11 +829,27 @@ int BytecodeGenerator::visit(Identifier& node)
 
 int BytecodeGenerator::visit(IndexExpr& node)
 {
-    // 基表达式求值：数组变量取其寄存器，嵌套索引取其 ARRGET 结果（数组句柄）
-    int arrReg = node.base->accept(*this);
-    int idxReg = node.index->accept(*this);
+    std::vector<IndexExpr*> chain;
+    收集索引链(node, chain);
+
+    // 深度 1 → 单索引快路径
+    if (chain.size() == 1) {
+        int arrReg = node.base->accept(*this);
+        int idxReg = node.index->accept(*this);
+        int resultReg = allocTemp();
+        program.emit(Opcode::ARRGET, resultReg, arrReg, idxReg);
+        return resultReg;
+    }
+
+    // 深度 ≥ 2 → 变长下标读取：先求基表达式，再按源顺序求值下标并 PUSH
+    int arrReg = chain.back()->base->accept(*this);
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+        int idxReg = (*it)->index->accept(*this);
+        program.emit(Opcode::PUSH, 0, idxReg);
+    }
     int resultReg = allocTemp();
-    program.emit(Opcode::ARRGET, resultReg, arrReg, idxReg);
+    program.emit(Opcode::ARRGETN, resultReg, arrReg, 0,
+                 static_cast<int>(chain.size()));
     return resultReg;
 }
 
@@ -903,6 +1105,18 @@ BytecodeProgram BytecodeGenerator::generateFromTAC(const TACProgram& tac,
             else if (op == TACOpcode::ARRSET) {
                 auto* s = static_cast<TACArraySet*>(inst.get());
                 program.emit(Opcode::ARRSET, s->val.index, s->arr.index, s->idx.index);
+            }
+            else if (op == TACOpcode::ARRDIMSET) {
+                auto* d = static_cast<TACArrayDimSet*>(inst.get());
+                program.emit(Opcode::ARRDIMSET, 0, d->arr.index, d->val.index, d->dimIdx);
+            }
+            else if (op == TACOpcode::ARRGETN) {
+                auto* g = static_cast<TACArrayGetN*>(inst.get());
+                program.emit(Opcode::ARRGETN, g->rd.index, g->arr.index, 0, g->indexCount);
+            }
+            else if (op == TACOpcode::ARRSETN) {
+                auto* s = static_cast<TACArraySetN*>(inst.get());
+                program.emit(Opcode::ARRSETN, s->val.index, s->arr.index, 0, s->indexCount);
             }
             else if (op == TACOpcode::PRINT) {
                 auto* p = static_cast<TACPrint*>(inst.get());

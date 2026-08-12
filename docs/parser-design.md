@@ -28,10 +28,16 @@ expression    = assignment (优先级从低到高)
 
 3. **`parseStatement()`** — 按当前 token 类型分发：
    - `变量` → `parseVarDecl()`
+   - `数组` → `parseArrayDecl()`
    - `如果` → `parseIfStmt()`
    - `当` → `parseWhileStmt()`
    - `返回` → `parseReturnStmt()`
    - 其他 → `parseExpression()` 作为表达式语句
+
+4. **数组声明 `parseArrayDecl()`** — `数组 名 [expr] [expr] ... (= {...})?`：
+   - 逐维解析 `[表达式]`（支持任意表达式长度、多维）
+   - 初始化列表可省略；`{...}` 由 `parseArrayLiteral()` 解析为 `ArrayLiteral` 节点
+   - `parseArrayLiteral()` 解析逗号分隔的元素；`parseArrayItem()` 遇 `{` 递归解析嵌套子列表，否则按表达式解析
 
 4. **表达式解析** — 优先级爬升：
    ```

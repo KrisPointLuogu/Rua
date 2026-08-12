@@ -113,12 +113,28 @@ class ASTDumpVisitor : public ASTVisitor {
     int visit(ArrayDecl& node) override
     {
         indent();
-        os_ << "ArrayDecl " << node.name << "[" << node.size << "]";
+        os_ << "ArrayDecl " << node.name << "[";
+        for (size_t i = 0; i < node.sizes.size(); ++i) {
+            if (i) os_ << "][";
+            node.sizes[i]->accept(*this);
+        }
+        os_ << "]";
         if (node.initialValue) {
             os_ << " = ";
             node.initialValue->accept(*this);
         }
         os_ << "\n";
+        return 0;
+    }
+
+    int visit(ArrayLiteral& node) override
+    {
+        os_ << "{";
+        for (size_t i = 0; i < node.elements.size(); ++i) {
+            if (i) os_ << ", ";
+            node.elements[i]->accept(*this);
+        }
+        os_ << "}";
         return 0;
     }
 

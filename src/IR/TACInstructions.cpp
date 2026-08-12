@@ -15,6 +15,9 @@ int TACNop::accept(TACVisitor& v) { return v.visit(*this); }
 int TACArrayNew::accept(TACVisitor& v) { return v.visit(*this); }
 int TACArrayGet::accept(TACVisitor& v) { return v.visit(*this); }
 int TACArraySet::accept(TACVisitor& v) { return v.visit(*this); }
+int TACArrayDimSet::accept(TACVisitor& v) { return v.visit(*this); }
+int TACArrayGetN::accept(TACVisitor& v) { return v.visit(*this); }
+int TACArraySetN::accept(TACVisitor& v) { return v.visit(*this); }
 
 int TACProgram::addConstant(int value) {
     for (size_t i = 0; i < constants.size(); i++)

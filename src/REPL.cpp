@@ -30,6 +30,181 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
+// ==================== AST 抽象语法树调试输出 ====================
+
+#ifdef _DEBUG
+string 运算符符号(int 操作符)
+{
+    switch (操作符) {
+    case 词法分析器类::等号: return "=";
+    case 词法分析器类::加号: return "+";
+    case 词法分析器类::减号: return "-";
+    case 词法分析器类::乘号: return "*";
+    case 词法分析器类::除号: return "/";
+    case 词法分析器类::等于: return "==";
+    case 词法分析器类::不等于: return "!=";
+    case 词法分析器类::大于: return ">";
+    case 词法分析器类::小于: return "<";
+    case 词法分析器类::模: return "%";
+    case 词法分析器类::乘方: return "^";
+    case 词法分析器类::整除: return "//";
+    case 词法分析器类::大于等于: return ">=";
+    case 词法分析器类::小于等于: return "<=";
+    default: return "?";
+    }
+}
+
+void 打印AST节点(const ASTNode& 节点, string 前缀, bool 末尾)
+{
+    string 当前行 = 前缀 + (末尾 ? "└─ " : "├─ ");
+    string 子前缀 = 前缀 + (末尾 ? "   " : "│  ");
+
+    switch (节点.getType()) {
+    case NodeType::PROGRAM: {
+        const auto& n = static_cast<const Program&>(节点);
+        调试输出(当前行 + "程序");
+        size_t 索引 = 0;
+        size_t 总数 = n.functions.size() + n.topLevelStmts.size();
+        for (auto& f : n.functions) {
+            打印AST节点(*f, 子前缀, 索引 == 总数 - 1);
+            ++索引;
+        }
+        for (auto& s : n.topLevelStmts) {
+            打印AST节点(*s, 子前缀, 索引 == 总数 - 1);
+            ++索引;
+        }
+        break;
+    }
+    case NodeType::FUNCTION: {
+        const auto& n = static_cast<const Function&>(节点);
+        string 参数 = "";
+        for (size_t i = 0; i < n.params.size(); i++) {
+            if (i) 参数 += ", ";
+            参数 += n.params[i];
+        }
+        调试输出(当前行 + "函数: " + n.name + " (参数: " + 参数 + ")");
+        打印AST节点(*n.body, 子前缀, true);
+        break;
+    }
+    case NodeType::BLOCK: {
+        const auto& n = static_cast<const Block&>(节点);
+        调试输出(当前行 + "语句块");
+        for (size_t i = 0; i < n.statements.size(); i++)
+            打印AST节点(*n.statements[i], 子前缀,
+                         i == n.statements.size() - 1);
+        break;
+    }
+    case NodeType::VAR_DECL: {
+        const auto& n = static_cast<const VarDecl&>(节点);
+        调试输出(当前行 + "变量声明: " + n.name);
+        打印AST节点(*n.initializer, 子前缀, true);
+        break;
+    }
+    case NodeType::ARRAY_DECL: {
+        const auto& n = static_cast<const ArrayDecl&>(节点);
+        调试输出(当前行 + "数组声明: " + n.name);
+        for (auto& s : n.sizes) {
+            调试输出(子前缀 + "维度:");
+            打印AST节点(*s, 子前缀 + "   ", true);
+        }
+        if (n.initialValue)
+            打印AST节点(*n.initialValue, 子前缀, true);
+        else
+            调试输出(子前缀 + "(无初始化，默认全 0)");
+        break;
+    }
+    case NodeType::ARRAY_LITERAL: {
+        const auto& n = static_cast<const ArrayLiteral&>(节点);
+        调试输出(当前行 + "数组初始化列表");
+        for (size_t i = 0; i < n.elements.size(); i++)
+            打印AST节点(*n.elements[i], 子前缀,
+                         i == n.elements.size() - 1);
+        break;
+    }
+    case NodeType::IF_STMT: {
+        const auto& n = static_cast<const IfStmt&>(节点);
+        调试输出(当前行 + "如果语句");
+        打印AST节点(*n.condition, 子前缀, false);
+        打印AST节点(*n.thenBranch, 子前缀, n.elseBranch == nullptr);
+        if (n.elseBranch) 打印AST节点(*n.elseBranch, 子前缀, true);
+        break;
+    }
+    case NodeType::WHILE_STMT: {
+        const auto& n = static_cast<const WhileStmt&>(节点);
+        调试输出(当前行 + "当语句");
+        打印AST节点(*n.condition, 子前缀, false);
+        打印AST节点(*n.body, 子前缀, true);
+        break;
+    }
+    case NodeType::RETURN_STMT: {
+        const auto& n = static_cast<const ReturnStmt&>(节点);
+        调试输出(当前行 + "返回语句");
+        打印AST节点(*n.value, 子前缀, true);
+        break;
+    }
+    case NodeType::EXPR_STMT: {
+        const auto& n = static_cast<const ExprStmt&>(节点);
+        调试输出(当前行 + "表达式语句");
+        打印AST节点(*n.expression, 子前缀, true);
+        break;
+    }
+    case NodeType::BINARY_EXPR: {
+        const auto& n = static_cast<const BinaryExpr&>(节点);
+        调试输出(当前行 + "二元运算: " + 运算符符号(n.op));
+        打印AST节点(*n.left, 子前缀, false);
+        打印AST节点(*n.right, 子前缀, true);
+        break;
+    }
+    case NodeType::CALL_EXPR: {
+        const auto& n = static_cast<const CallExpr&>(节点);
+        调试输出(当前行 + "函数调用: " + n.callee);
+        for (size_t i = 0; i < n.args.size(); i++)
+            打印AST节点(*n.args[i], 子前缀, i == n.args.size() - 1);
+        break;
+    }
+    case NodeType::INDEX_EXPR: {
+        const auto& n = static_cast<const IndexExpr&>(节点);
+        调试输出(当前行 + "索引访问");
+        打印AST节点(*n.base, 子前缀, false);
+        打印AST节点(*n.index, 子前缀, true);
+        break;
+    }
+    case NodeType::NUMBER_LITERAL: {
+        const auto& n = static_cast<const NumberLiteral&>(节点);
+        调试输出(当前行 + "数字: " + std::to_string(n.value));
+        break;
+    }
+    case NodeType::STRING_LITERAL: {
+        const auto& n = static_cast<const StringLiteral&>(节点);
+        调试输出(当前行 + "字符串: \"" + n.value + "\"");
+        break;
+    }
+    case NodeType::IDENTIFIER: {
+        const auto& n = static_cast<const Identifier&>(节点);
+        调试输出(当前行 + "标识符: " + n.name);
+        break;
+    }
+    }
+}
+
+void 打印AST树(const Program& 程序)
+{
+    调试输出("====== AST 抽象语法树 ======");
+    调试输出("程序");
+    size_t 索引 = 0;
+    size_t 总数 = 程序.functions.size() + 程序.topLevelStmts.size();
+    for (auto& f : 程序.functions) {
+        打印AST节点(*f, "", 索引 == 总数 - 1);
+        ++索引;
+    }
+    for (auto& s : 程序.topLevelStmts) {
+        打印AST节点(*s, "", 索引 == 总数 - 1);
+        ++索引;
+    }
+    调试输出("====== AST 输出结束 ======");
+}
+#endif
+
 // ==================== 编译并运行一个完整的 Rua 程序 ====================
 
 void 编译并运行(const string& 源码)
@@ -50,6 +225,9 @@ void 编译并运行(const string& 源码)
         输出文本("【阶段二】语法分析 ...", "青");
         Parser 解析器(令牌列表);
         auto 程序 = 解析器.parseProgram();
+#ifdef _DEBUG
+        打印AST树(*程序);
+#endif
         输出文本("完成，共 " + std::to_string(程序->functions.size())
                      + " 个函数",
                  "GG");

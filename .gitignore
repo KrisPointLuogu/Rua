@@ -371,6 +371,7 @@ CMakeUserPresets.json
 _deps/
 compile_commands.jsonbuild_pgo*/
 
-BUG_FIX
 .clang-formatbuild_noopt/
 build_opt/
+
+test/

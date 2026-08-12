@@ -52,6 +52,9 @@ enum class Opcode : uint8_t {
     ARRNEW = 0x15, // rd = 新建长度为 rs1 的数组，元素全部初始化为 rs2
     ARRGET = 0x16, // rd = 数组[rs1][rs2]（rs1=数组句柄，rs2=索引）
     ARRSET = 0x17, // 数组[rs1][rs2] = rd（rs1=句柄，rs2=索引，rd=新值）
+    ARRDIMSET = 0x18, // 数组对象 dims[extra] = rs2（rs1=句柄，rs2=维度长度）
+    ARRGETN = 0x19,   // rd = 数组[rs1][栈下标...]，下标个数=extra（变长下标读取）
+    ARRSETN = 0x1A,   // 数组[rs1][栈下标...] = rd，下标个数=extra（变长下标写入）
 };
 
 struct FunctionInfo {
@@ -110,6 +113,7 @@ class BytecodeGenerator : public ASTVisitor {
     int visit(Block& node) override;
     int visit(VarDecl& node) override;
     int visit(ArrayDecl& node) override;
+    int visit(ArrayLiteral& node) override;
     int visit(IfStmt& node) override;
     int visit(WhileStmt& node) override;
     int visit(ReturnStmt& node) override;
@@ -127,4 +131,16 @@ class BytecodeGenerator : public ASTVisitor {
     int allocReg(const std::string& name);
     int lookupReg(const std::string& name);
     int allocTemp();
+
+    // 常量折叠：长度表达式仅限数字字面量 + 算术运算
+    bool 折叠常量表达式(const ASTNode* node, int& out);
+    // 将初始化列表展平为 (平铺偏移, 表达式) 对（嵌套时按 row-major 定位）
+    struct 初始化项 {
+        int offset;
+        ASTNode* expr;
+    };
+    void 展平初始化(ArrayLiteral* lit, const std::vector<int>& constDims,
+                   int level, int baseOffset, std::vector<初始化项>& out);
+    // 收集索引链（外层→内层），返回链长
+    int 收集索引链(IndexExpr& node, std::vector<IndexExpr*>& out);
 };

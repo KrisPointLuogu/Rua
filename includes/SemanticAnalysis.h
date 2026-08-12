@@ -33,7 +33,7 @@ struct Symbol {
     int paramCount = 0;
     int localCount = 0;
     int slotIndex = -1;
-    bool isArray = false;
+    int arrayRank = 0; // 0 = 标量，>=1 = 数组维度
 };
 
 // ----------------------------------------------------------
@@ -49,7 +49,7 @@ class SymbolTable {
     void enterScope();
     void exitScope();
     void declareVariable(const std::string& name, int line,
-                         bool isArray = false);
+                         int arrayRank = 0);
     void declareFunction(const std::string& name, int paramCount, int line);
     Symbol* lookup(const std::string& name);
     Symbol* lookupFunction(const std::string& name);
@@ -76,6 +76,7 @@ class SemanticAnalyzer : public ASTVisitor {
     int visit(Block& node) override;
     int visit(VarDecl& node) override;
     int visit(ArrayDecl& node) override;
+    int visit(ArrayLiteral& node) override;
     int visit(IfStmt& node) override;
     int visit(WhileStmt& node) override;
     int visit(ReturnStmt& node) override;
@@ -86,4 +87,13 @@ class SemanticAnalyzer : public ASTVisitor {
     int visit(NumberLiteral& node) override;
     int visit(StringLiteral& node) override;
     int visit(Identifier& node) override;
+
+  private:
+    // 常量折叠：长度表达式仅限数字字面量 + 算术运算
+    bool 折叠常量表达式(const ASTNode* node, int& out);
+    void 校验数组初始化(ASTNode* init, int rank,
+                      const std::vector<int>& constDims);
+    void 校验嵌套列表(ArrayLiteral* lit, int level, int rank,
+                    const std::vector<int>& constDims);
+    void 校验索引链(IndexExpr& node);
 };

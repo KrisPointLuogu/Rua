@@ -134,6 +134,9 @@ bool ConstantPropagation::run(TACProgram& program, int funcIdx)
         } else if (op == TACOpcode::ARRGET) {
             auto* g = static_cast<TACArrayGet*>(inst.get());
             clearConst(g->rd.index);
+        } else if (op == TACOpcode::ARRGETN) {
+            auto* g = static_cast<TACArrayGetN*>(inst.get());
+            clearConst(g->rd.index);
         }
     }
     return changed;

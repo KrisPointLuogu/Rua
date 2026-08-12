@@ -11,7 +11,9 @@
  *   block       = "{" statement* "}"
  *   statement   = varDecl | arrayDecl | ifStmt | whileStmt | returnStmt | exprStmt
  *   varDecl     = "变量" IDENTIFIER "=" expression
- *   arrayDecl   = "数组" IDENTIFIER "[" NUMBER "]" "=" "{" expression "}"
+ *   arrayDecl   = "数组" IDENTIFIER ("[" expression "]")+ ("=" "{" arrayLiteral "}")?
+ *   arrayLiteral = arrayItem ("," arrayItem)*
+ *   arrayItem   = expression | "{" arrayLiteral "}"
  *   ifStmt      = "如果" expression "那么" block ("否则" block)?
  *   whileStmt   = "当" expression "那么" block
  *   returnStmt  = "返回" expression
@@ -219,20 +221,53 @@ unique_ptr<ArrayDecl> Parser::parseArrayDecl()
     arrDecl->name = u32to8(nameToken.内容_);
 
     consume(TK::左中括号, "数组名后需要 '['");
+    arrDecl->sizes.push_back(parseExpression());
+    consume(TK::右中括号, "数组维度后需要 ']'");
 
-    const 令牌& sizeToken = consume(TK::数字, "数组长度需要是数字");
-    arrDecl->size = 解析整数(sizeToken);
+    // 多维数组：连续 "[表达式]"
+    while (match(TK::左中括号)) {
+        arrDecl->sizes.push_back(parseExpression());
+        consume(TK::右中括号, "数组维度后需要 ']'");
+    }
 
-    consume(TK::右中括号, "数组长度后需要 ']'");
-
-    consume(TK::等号, "数组声明需要 '='");
-    consume(TK::左花括号, "数组初始化需要 '{'");
-
-    arrDecl->initialValue = parseExpression();
-
-    consume(TK::右花括号, "数组初始化需要 '}'");
+    // 初始化列表可省略
+    if (match(TK::等号)) {
+        consume(TK::左花括号, "数组初始化需要 '{'");
+        arrDecl->initialValue = parseArrayLiteral();
+        consume(TK::右花括号, "数组初始化需要 '}'");
+    }
 
     return arrDecl;
+}
+
+unique_ptr<ASTNode> Parser::parseArrayLiteral()
+{
+    auto literal = make_unique<ArrayLiteral>();
+    literal->line = previous().行位置_;
+    literal->column = previous().列位置_;
+
+    if (check(TK::右花括号)) {
+        throw error(peek(), "数组初始化列表不能为空");
+    }
+
+    literal->elements.push_back(parseArrayItem());
+    while (match(TK::逗号)) {
+        literal->elements.push_back(parseArrayItem());
+    }
+
+    return literal;
+}
+
+unique_ptr<ASTNode> Parser::parseArrayItem()
+{
+    // 嵌套子列表：{ 子列表 }
+    if (match(TK::左花括号)) {
+        auto nested = parseArrayLiteral();
+        consume(TK::右花括号, "嵌套数组初始化需要 '}'");
+        return nested;
+    }
+
+    return parseExpression();
 }
 
 unique_ptr<IfStmt> Parser::parseIfStmt()

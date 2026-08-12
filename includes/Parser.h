@@ -21,7 +21,7 @@ using 令牌 = 词法分析器类::令牌;
 //   block       = "{" statement* "}"
 //   statement   = varDecl | arrayDecl | ifStmt | whileStmt | returnStmt | exprStmt
 //   varDecl     = "变量" IDENTIFIER "=" expression
-//   arrayDecl   = "数组" IDENTIFIER "[" NUMBER "]" "=" "{" expression "}"
+//   arrayDecl   = "数组" IDENTIFIER ("[" expression "]")+ ("=" "{" arrayLiteral "}")?
 //   ifStmt      = "如果" expression "那么" block ("否则" block)?
 //   whileStmt   = "当" expression "那么" block
 //   returnStmt  = "返回" expression
@@ -72,6 +72,8 @@ class Parser {
     std::unique_ptr<ASTNode> parseStatement();
     std::unique_ptr<VarDecl> parseVarDecl();
     std::unique_ptr<ArrayDecl> parseArrayDecl();
+    std::unique_ptr<ASTNode> parseArrayLiteral();
+    std::unique_ptr<ASTNode> parseArrayItem();
     std::unique_ptr<IfStmt> parseIfStmt();
     std::unique_ptr<WhileStmt> parseWhileStmt();
     std::unique_ptr<ReturnStmt> parseReturnStmt();

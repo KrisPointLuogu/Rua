@@ -60,6 +60,18 @@ inline void dumpTACFunction(const TACFunction& func)
             auto* s = static_cast<const TACArraySet*>(inst.get());
             std::cout << "ARRSET r" << s->val.index << ", r" << s->arr.index
                       << ", r" << s->idx.index;
+        } else if (op == TACOpcode::ARRDIMSET) {
+            auto* d = static_cast<const TACArrayDimSet*>(inst.get());
+            std::cout << "ARRDIMSET r" << d->arr.index << ", dim" << d->dimIdx
+                      << ", r" << d->val.index;
+        } else if (op == TACOpcode::ARRGETN) {
+            auto* g = static_cast<const TACArrayGetN*>(inst.get());
+            std::cout << "ARRGETN r" << g->rd.index << ", r" << g->arr.index
+                      << ", [" << g->indexCount << " 下标]";
+        } else if (op == TACOpcode::ARRSETN) {
+            auto* s = static_cast<const TACArraySetN*>(inst.get());
+            std::cout << "ARRSETN r" << s->val.index << ", r" << s->arr.index
+                      << ", [" << s->indexCount << " 下标]";
         } else {
             auto* b = static_cast<const TACBinary*>(inst.get());
             const char* opname = "???";
