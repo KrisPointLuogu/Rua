@@ -5,6 +5,14 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="OPT|Win32">
+      <Configuration>OPT</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="OPT|x64">
+      <Configuration>OPT</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
@@ -33,6 +41,12 @@
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='OPT|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
@@ -41,6 +55,12 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='OPT|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
@@ -61,10 +81,16 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='OPT|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='OPT|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -78,10 +104,34 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalIncludeDirectories>includes;arch;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Manifest>
+      <EnableSegmentHeap>true</EnableSegmentHeap>
+    </Manifest>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='OPT|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;OPTIMIZATION;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalIncludeDirectories>includes;arch;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -96,10 +146,14 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalIncludeDirectories>includes;arch;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -108,16 +162,38 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalIncludeDirectories>includes;arch;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Manifest>
+      <EnableSegmentHeap>true</EnableSegmentHeap>
+    </Manifest>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='OPT|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;OPTIMIZATION;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalIncludeDirectories>includes;arch;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -129,17 +205,17 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_CONSOLE</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalIncludeDirectories>includes;arch;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -148,24 +224,109 @@
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\REPL.cpp" />
-    <ClCompile Include="src\UTF32支持.cpp" />
-    <ClCompile Include="src\词法分析器.cpp" />
-    <ClCompile Include="includes\信息上报.h" />
+    <ClCompile Include="src\UTF32Support.cpp" />
+    <ClCompile Include="src\Lexer.cpp" />
+    <ClCompile Include="src\Parser.cpp" />
+    <ClCompile Include="src\SemanticAnalysis.cpp" />
+    <ClCompile Include="src\BytecodeGenerator.cpp" />
+    <ClCompile Include="src\VM.cpp" />
+    <ClCompile Include="src\JIT.cpp" />
+    <ClCompile Include="arch\CommandLine_windows.cpp" />
+    <ClCompile Include="arch\Console_windows.cpp" />
+    <ClCompile Include="arch\FileSystem_windows.cpp" />
+    <ClCompile Include="arch\JITPlatform_windows.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\TACGenerator.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\IR\BasicBlock.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\IR\CFG.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\IR\DominatorTree.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\IR\TACInstructions.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\PassManager.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\ConstantPropagation.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\DCE.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\LICM.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\LoopUnrolling.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\FunctionInlining.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\StrengthReduction.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='OPT'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="arch\CommandLine_linux.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="arch\Console_linux.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="arch\FileSystem_linux.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="arch\JITPlatform_linux.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="includes\AST.h" />
+    <ClInclude Include="includes\ASTDump.h" />
+    <ClInclude Include="includes\Bytecode.h" />
+    <ClInclude Include="includes\ColorOutput.h" />
+    <ClInclude Include="includes\DebugOutput.h" />
+    <ClInclude Include="includes\Exceptions.h" />
+    <ClInclude Include="includes\Globals.h" />
+    <ClInclude Include="includes\JIT.h" />
+    <ClInclude Include="includes\Lexer.h" />
     <ClInclude Include="includes\main.h" />
+    <ClInclude Include="includes\Parser.h" />
+    <ClInclude Include="includes\Platform.h" />
     <ClInclude Include="includes\REPL.h" />
-    <ClInclude Include="includes\UTF32支持.h" />
-    <ClInclude Include="includes\全局内容.h" />
-    <ClInclude Include="includes\平台检测.h" />
-    <ClInclude Include="includes\异常上报.h" />
-    <ClInclude Include="includes\词法分析器.h" />
-    <ClInclude Include="includes\调试输出支持.h" />
-    <ClInclude Include="includes\输出彩色支持.h" />
+    <ClInclude Include="includes\Reporting.h" />
+    <ClInclude Include="includes\SemanticAnalysis.h" />
+    <ClInclude Include="includes\TACGenerator.h" />
+    <ClInclude Include="includes\UTF32Support.h" />
+    <ClInclude Include="includes\VM.h" />
+    <ClInclude Include="includes\IR\BasicBlock.h" />
+    <ClInclude Include="includes\IR\CFG.h" />
+    <ClInclude Include="includes\IR\DominatorTree.h" />
+    <ClInclude Include="includes\IR\TACDump.h" />
+    <ClInclude Include="includes\IR\TACInstructions.h" />
+    <ClInclude Include="includes\Optimizer\PassManager.h" />
+    <ClInclude Include="arch\CommandLine.h" />
+    <ClInclude Include="arch\CommandLine_windows.h" />
+    <ClInclude Include="arch\CommandLine_linux.h" />
+    <ClInclude Include="arch\Console.h" />
+    <ClInclude Include="arch\Console_windows.h" />
+    <ClInclude Include="arch\Console_linux.h" />
+    <ClInclude Include="arch\FileSystem.h" />
+    <ClInclude Include="arch\FileSystem_windows.h" />
+    <ClInclude Include="arch\FileSystem_linux.h" />
+    <ClInclude Include="arch\JITPlatform.h" />
+    <ClInclude Include="arch\JITPlatform_windows.h" />
+    <ClInclude Include="arch\JITPlatform_linux.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="推送.md" />
-    <None Include="码风文档.md" />
+    <None Include="CMakeLists.txt" />
+    <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

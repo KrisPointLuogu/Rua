@@ -1,0 +1,33 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.7.11919.86 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rua", "Rua.vcxproj", "{C597D166-43EA-451A-8C01-9784D79CC099}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		OPT|Win32 = OPT|Win32
+		OPT|x64 = OPT|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C597D166-43EA-451A-8C01-9784D79CC099}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C597D166-43EA-451A-8C01-9784D79CC099}.Debug|Win32.Build.0 = Debug|Win32
+		{C597D166-43EA-451A-8C01-9784D79CC099}.Debug|x64.ActiveCfg = Debug|x64
+		{C597D166-43EA-451A-8C01-9784D79CC099}.Debug|x64.Build.0 = Debug|x64
+		{C597D166-43EA-451A-8C01-9784D79CC099}.OPT|Win32.ActiveCfg = OPT|Win32
+		{C597D166-43EA-451A-8C01-9784D79CC099}.OPT|Win32.Build.0 = OPT|Win32
+		{C597D166-43EA-451A-8C01-9784D79CC099}.OPT|x64.ActiveCfg = OPT|x64
+		{C597D166-43EA-451A-8C01-9784D79CC099}.OPT|x64.Build.0 = OPT|x64
+		{C597D166-43EA-451A-8C01-9784D79CC099}.Release|Win32.ActiveCfg = Release|Win32
+		{C597D166-43EA-451A-8C01-9784D79CC099}.Release|Win32.Build.0 = Release|Win32
+		{C597D166-43EA-451A-8C01-9784D79CC099}.Release|x64.ActiveCfg = Release|x64
+		{C597D166-43EA-451A-8C01-9784D79CC099}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

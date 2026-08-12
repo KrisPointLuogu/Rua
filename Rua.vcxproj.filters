@@ -1,17 +1,28 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="源文件">
+    <Filter Include="src">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="头文件">
+    <Filter Include="includes">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="资源文件">
+    <Filter Include="arch">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="src\IR">
+      <UniqueIdentifier>{4dbf0b36-42a2-4e4f-8a1b-8d6e31d3c3b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Optimizer">
+      <UniqueIdentifier>{7f47b0c8-6c92-4d0a-9a11-94d3f6c2a4d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="includes\IR">
+      <UniqueIdentifier>{8e5a2cd1-3f53-4b24-91c0-aa5f7b0e5d13}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="includes\Optimizer">
+      <UniqueIdentifier>{ba7d99e2-0a44-4c66-a84f-5e19d2d8f9a3}</UniqueIdentifier>
     </Filter>
     <Filter Include="非代码">
       <UniqueIdentifier>{578ffdc4-f794-41bc-8c66-5890fd268393}</UniqueIdentifier>
@@ -19,55 +30,208 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
-      <Filter>源文件</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\REPL.cpp">
-      <Filter>源文件</Filter>
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\词法分析器.cpp">
-      <Filter>源文件</Filter>
+    <ClCompile Include="src\UTF32Support.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="includes\信息上报.h">
-      <Filter>头文件</Filter>
+    <ClCompile Include="src\Lexer.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\UTF32支持.cpp">
-      <Filter>源文件</Filter>
+    <ClCompile Include="src\Parser.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SemanticAnalysis.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BytecodeGenerator.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\VM.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\JIT.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TACGenerator.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IR\BasicBlock.cpp">
+      <Filter>src\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IR\CFG.cpp">
+      <Filter>src\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IR\DominatorTree.cpp">
+      <Filter>src\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IR\TACInstructions.cpp">
+      <Filter>src\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\PassManager.cpp">
+      <Filter>src\Optimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\ConstantPropagation.cpp">
+      <Filter>src\Optimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\DCE.cpp">
+      <Filter>src\Optimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\LICM.cpp">
+      <Filter>src\Optimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\LoopUnrolling.cpp">
+      <Filter>src\Optimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\FunctionInlining.cpp">
+      <Filter>src\Optimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer\StrengthReduction.cpp">
+      <Filter>src\Optimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\CommandLine_windows.cpp">
+      <Filter>arch</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\Console_windows.cpp">
+      <Filter>arch</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\FileSystem_windows.cpp">
+      <Filter>arch</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\JITPlatform_windows.cpp">
+      <Filter>arch</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\CommandLine_linux.cpp">
+      <Filter>arch</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\Console_linux.cpp">
+      <Filter>arch</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\FileSystem_linux.cpp">
+      <Filter>arch</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\JITPlatform_linux.cpp">
+      <Filter>arch</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="includes\输出彩色支持.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="includes\AST.h">
+      <Filter>includes</Filter>
     </ClInclude>
-    <ClInclude Include="includes\异常上报.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="includes\ASTDump.h">
+      <Filter>includes</Filter>
     </ClInclude>
-    <ClInclude Include="includes\REPL.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="includes\Bytecode.h">
+      <Filter>includes</Filter>
     </ClInclude>
-    <ClInclude Include="includes\词法分析器.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="includes\ColorOutput.h">
+      <Filter>includes</Filter>
     </ClInclude>
-    <ClInclude Include="includes\UTF32支持.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="includes\DebugOutput.h">
+      <Filter>includes</Filter>
     </ClInclude>
-    <ClInclude Include="includes\调试输出支持.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="includes\Exceptions.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\Globals.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\JIT.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\Lexer.h">
+      <Filter>includes</Filter>
     </ClInclude>
     <ClInclude Include="includes\main.h">
-      <Filter>头文件</Filter>
+      <Filter>includes</Filter>
     </ClInclude>
-    <ClInclude Include="includes\全局内容.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="includes\Parser.h">
+      <Filter>includes</Filter>
     </ClInclude>
-    <ClInclude Include="includes\平台检测.h">
-      <Filter>头文件</Filter>
+    <ClInclude Include="includes\Platform.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\REPL.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\Reporting.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\SemanticAnalysis.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\TACGenerator.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\UTF32Support.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\VM.h">
+      <Filter>includes</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\IR\BasicBlock.h">
+      <Filter>includes\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\IR\CFG.h">
+      <Filter>includes\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\IR\DominatorTree.h">
+      <Filter>includes\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\IR\TACDump.h">
+      <Filter>includes\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\IR\TACInstructions.h">
+      <Filter>includes\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\Optimizer\PassManager.h">
+      <Filter>includes\Optimizer</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\CommandLine.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\CommandLine_windows.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\CommandLine_linux.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\Console.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\Console_windows.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\Console_linux.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\FileSystem.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\FileSystem_windows.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\FileSystem_linux.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\JITPlatform.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\JITPlatform_windows.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\JITPlatform_linux.h">
+      <Filter>arch</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="码风文档.md">
+    <None Include="CMakeLists.txt">
       <Filter>非代码</Filter>
     </None>
-    <None Include="推送.md">
+    <None Include="README.md">
       <Filter>非代码</Filter>
     </None>
   </ItemGroup>

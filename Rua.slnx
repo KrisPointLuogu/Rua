@@ -1,7 +1,13 @@
 <Solution>
   <Configurations>
+    <Platform Name="Win32" />
     <Platform Name="x64" />
-    <Platform Name="x86" />
   </Configurations>
-  <Project Path="Rua/Rua.vcxproj" Id="c597d166-43ea-451a-8c01-9784d79cc099" />
+  <Project Path="Rua.vcxproj" Id="c597d166-43ea-451a-8c01-9784d79cc099">
+    <Configurations>
+      <Configuration Name="Debug" Platforms="Win32,x64" />
+      <Configuration Name="OPT" Platforms="Win32,x64" />
+      <Configuration Name="Release" Platforms="Win32,x64" />
+    </Configurations>
+  </Project>
 </Solution>
