@@ -282,7 +282,7 @@ void 编译并运行(const string& 源码)
                      + " 字节的字节码",
                  "GG");
 
-#ifdef OPTIMIZATION
+#if defined(OPTIMIZATION) && (defined(_WIN64) || !defined(_WIN32))
         输出文本("【阶段四·五】JIT 编译 ...", "青");
         {
             JITCompiler jit;

@@ -16,7 +16,7 @@
 #include <vector>
 #include "JITPlatform.h"
 
-#ifdef OPTIMIZATION
+#if defined(OPTIMIZATION) && (defined(_WIN64) || !defined(_WIN32))
 
 #include <iostream>
 
@@ -399,10 +399,16 @@ bool JITCompiler::canJIT(const FunctionInfo& func, const BytecodeProgram& prog)
     for (size_t i = 0; i < funcs.size(); i++)
         if (funcs[i].codeOffset == func.codeOffset) { myIndex = (int)i; break; }
 
-    // 基础判定：无字符串/数组/除模指令，参数不超 6 个
+    // 基础判定：无字符串/数组/除模指令，参数不超上限
+    // Windows x64 前 4 参数走寄存器（RCX/RDX/R8/R9），第 5、6 参数需压栈，
+    // 为简化起见 Windows 仅对 ≤4 参数的函数启用 JIT（5+ 参数退回解释器）
     auto 基础可JIT = [&](int idx) {
         const auto& f = funcs[idx];
+#ifdef _WIN32
+        if (f.paramCount > 4) return false;
+#else
         if (f.paramCount > 6) return false;
+#endif
         int end = prog.getCodeSize();
         for (size_t k = idx + 1; k < funcs.size(); k++) {
             if (funcs[k].codeOffset > f.codeOffset) {
@@ -533,6 +539,11 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
     bool needRBX = (func.paramCount >= 1), needR12 = (func.paramCount >= 2),
          needR13 = (func.paramCount >= 3),
          needR14 = (func.paramCount >= 4), needR15 = (func.paramCount >= 5);
+    // Windows x64 中 RDI/RSI 也是 callee-saved，JIT 用作 v7/v6，
+    // 必须在函数边界保存/恢复，避免破坏解释器（MSVC）的寄存器状态
+#ifdef _WIN32
+    bool needRDI = false, needRSI = false;
+#endif
     for (int pc = func.codeOffset; pc < endOff; pc += 8) {
         uint8_t rd = code[pc + 1], rs1 = code[pc + 2], rs2 = code[pc + 3];
         int p = vregToPhys(rd);
@@ -541,16 +552,28 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
         if (p == R13) needR13 = true;
         if (p == R14) needR14 = true;
         if (p == R15) needR15 = true;
+#ifdef _WIN32
+        if (p == RDI) needRDI = true;
+        if (p == RSI) needRSI = true;
+#endif
         if (vregToPhys(rs1) == RBX) needRBX = true;
         if (vregToPhys(rs1) == R12) needR12 = true;
         if (vregToPhys(rs1) == R13) needR13 = true;
         if (vregToPhys(rs1) == R14) needR14 = true;
         if (vregToPhys(rs1) == R15) needR15 = true;
+#ifdef _WIN32
+        if (vregToPhys(rs1) == RDI) needRDI = true;
+        if (vregToPhys(rs1) == RSI) needRSI = true;
+#endif
         if (vregToPhys(rs2) == RBX) needRBX = true;
         if (vregToPhys(rs2) == R12) needR12 = true;
         if (vregToPhys(rs2) == R13) needR13 = true;
         if (vregToPhys(rs2) == R14) needR14 = true;
         if (vregToPhys(rs2) == R15) needR15 = true;
+#ifdef _WIN32
+        if (vregToPhys(rs2) == RDI) needRDI = true;
+        if (vregToPhys(rs2) == RSI) needRSI = true;
+#endif
     }
 
     // 栈溢出槽位（v14+ 的寄存器需要 spill 到栈）
@@ -561,8 +584,11 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
 #ifdef _DEBUG
     std::cerr << "[JIT]   需保存callee-saved: RBX=" << needRBX
               << " R12=" << needR12 << " R13=" << needR13 << " R14=" << needR14
-              << " R15=" << needR15 << "\n";
-    std::cerr << "[JIT]   溢出槽位=" << spillCount << "\n";
+              << " R15=" << needR15;
+#ifdef _WIN32
+    std::cerr << " RDI=" << needRDI << " RSI=" << needRSI;
+#endif
+    std::cerr << "\n";
 #endif
 
     // ===== 函数序言 =====
@@ -583,6 +609,10 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
     if (needR13) emitPUSH(R13);
     if (needR14) emitPUSH(R14);
     if (needR15) emitPUSH(R15);
+#ifdef _WIN32
+    if (needRDI) emitPUSH(RDI);
+    if (needRSI) emitPUSH(RSI);
+#endif
 
     // 分配栈空间（溢出 + 16 字节对齐）
     int stackFrame = spillCount * 8;
@@ -593,6 +623,10 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
     if (needR13) pushedBytes += 8;
     if (needR14) pushedBytes += 8;
     if (needR15) pushedBytes += 8;
+#ifdef _WIN32
+    if (needRDI) pushedBytes += 8;
+    if (needRSI) pushedBytes += 8;
+#endif
     int alignedFrame = (stackFrame + 15) & ~15;
     // SysV ABI: 入口 RSP ≡ 8(mod 16)（CALL 压入返回地址）
     // 函数体内需 RSP ≡ 0 (mod 16) 以便后续 CALL 对齐
@@ -609,14 +643,23 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
         emit32(alignedFrame);
     }
 
-    // 将参数从 SysV 调用约定寄存器复制到对应的 callee-saved 物理寄存器
+    // 将参数从调用约定寄存器复制到对应的 callee-saved 物理寄存器
     // （必须在 callee-saved push 之后，确保原始值已保存）
+#ifdef _WIN32
+    // Windows x64: RCX, RDX, R8, R9（前 4 参数在寄存器，第 5+ 由 canJIT 拒绝）
+    if (func.paramCount >= 1) emitMOV(RBX, RCX);   // v1 ← RCX
+    if (func.paramCount >= 2) emitMOV(R12, RDX);   // v2 ← RDX
+    if (func.paramCount >= 3) emitMOV(R13, R8);    // v3 ← R8
+    if (func.paramCount >= 4) emitMOV(R14, R9);    // v4 ← R9
+#else
+    // SysV: RDI, RSI, RDX, RCX, R8, R9
     if (func.paramCount >= 1) emitMOV(RBX, RDI);   // v1 ← RDI
     if (func.paramCount >= 2) emitMOV(R12, RSI);   // v2 ← RSI
     if (func.paramCount >= 3) emitMOV(R13, RDX);   // v3 ← RDX
     if (func.paramCount >= 4) emitMOV(R14, RCX);   // v4 ← RCX
     if (func.paramCount >= 5) emitMOV(R15, R8);    // v5 ← R8
     if (func.paramCount >= 6) emitMOV(RSI, R9);    // v6 ← R9
+#endif
 
     // ===== 翻译字节码 =====
     vector<int> pushStack; // 记录 PUSH 的虚拟寄存器，供 CALL 使用
@@ -1111,7 +1154,38 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
         }
 
         case Opcode::PRINT: {
-            // 将源寄存器的值加载到 RDI（SysV 第一个参数）
+#ifdef _WIN32
+            // Windows x64: 第一个参数在 RCX
+            // 先压栈保存 caller-saved（含 v9/RCX 旧值），再装载参数到 RCX
+            emitPUSH(R11);
+            emitPUSH(R10);
+            emitPUSH(R9);
+            emitPUSH(R8);
+            emitPUSH(RDX);
+            emitPUSH(RCX);
+            emitPUSH(RDI);
+            emitPUSH(RSI);
+
+            int psrc = vregToPhys(rs1);
+            if (psrc >= 0 && psrc != RCX)
+                emitMOV(RCX, psrc);
+            else if (psrc < 0)
+                emitMOVfromStack(RCX, spillBase - (rs1 - 14) * 8);
+
+            // 间接调用 jit_print_int（避免 rel32 溢出）
+            emitMOVi64(R10, (int64_t)jit_print_int);
+            emitCALLreg(R10);
+
+            emitPOP(RSI);
+            emitPOP(RDI);
+            emitPOP(RCX);
+            emitPOP(RDX);
+            emitPOP(R8);
+            emitPOP(R9);
+            emitPOP(R10);
+            emitPOP(R11);
+#else
+            // SysV: 第一个参数在 RDI
             int psrc = vregToPhys(rs1);
             if (psrc >= 0 && psrc != RDI)
                 emitMOV(RDI, psrc);
@@ -1141,6 +1215,7 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
             emitPOP(R9);
             emitPOP(R10);
             emitPOP(R11);
+#endif
 
             break;
         }
@@ -1174,22 +1249,34 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
             emitPUSH(RDI); // v7
             emitPUSH(RSI); // v6
 
-            // 参数寄存器列表：rdi, rsi, rdx, rcx, r8, r9
+            // 参数寄存器列表
+#ifdef _WIN32
+            // Windows x64: rcx, rdx, r8, r9（canJIT 保证 pCnt ≤ 4）
+            static const uint8_t argRegs[] = { RCX, RDX, R8, R9 };
+            const char* argRegNames[] = { "RCX", "RDX", "R8", "R9" };
+#else
+            // SysV: rdi, rsi, rdx, rcx, r8, r9
             static const uint8_t argRegs[] = { RDI, RSI, RDX, RCX, R8, R9 };
             const char* argRegNames[]
                 = { "RDI", "RSI", "RDX", "RCX", "R8", "R9" };
+#endif
             for (int i = 0; i < pCnt && i < 6; i++) {
                 int vreg = pushStack[realStart + i];
                 int preg = vregToPhys(vreg);
                 if (preg >= 0) {
                     if (preg == argRegs[i]) {
                         // 源和目标相同，不需要拷贝
-                    } else if (preg == RDI || preg == RSI || preg == RDX
-                               || preg == RCX || preg == R8 || preg == R9) {
+                    }
+#ifdef _WIN32
+                    else if (preg == RCX || preg == RDX || preg == R8
+                             || preg == R9) {
+#else
+                    else if (preg == RDI || preg == RSI || preg == RDX
+                             || preg == RCX || preg == R8 || preg == R9) {
+#endif
                         // 源是参数寄存器之一：上文已把全部 caller-saved
                         // 寄存器 push 到栈上保存原始值，从保存槽读取，
-                        // 避免先前参数装载（如 mov rsi,r13）覆盖了它
-                        // （装载循环只写 RDI/RSI/RDX/RCX/R8/R9）
+                        // 避免先前参数装载（如 mov rcx,r13）覆盖了它
                         // push 顺序: R11,R10,R9,R8,RCX,RDX,RDI,RSI
                         // → 最后一个 push 落在 [rsp+0]，按寄存器编号的
                         //   RSP 相对偏移:
@@ -1318,6 +1405,10 @@ JITFunc JITCompiler::compileFunction(int funcIdx, const FunctionInfo& func,
         emitModRM(3, 0, RSP & 7);
         emit32(alignedFrame);
     }
+#ifdef _WIN32
+    if (needRSI) emitPOP(RSI);
+    if (needRDI) emitPOP(RDI);
+#endif
     if (needR15) emitPOP(R15);
     if (needR14) emitPOP(R14);
     if (needR13) emitPOP(R13);
@@ -1408,4 +1499,4 @@ void JITCompiler::compile(BytecodeProgram& prog)
 #endif
 }
 
-#endif // OPTIMIZATION
+#endif // OPTIMIZATION && (WIN64 || non-Windows)

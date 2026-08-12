@@ -15,7 +15,7 @@
 #ifdef _DEBUG
 #include <chrono>
 #endif
-#ifdef OPTIMIZATION
+#if defined(OPTIMIZATION) && (defined(_WIN64) || !defined(_WIN32))
 typedef int64_t (*JITFunc)(int64_t, int64_t, int64_t, int64_t, int64_t,
                            int64_t);
 #endif
@@ -67,14 +67,14 @@ void VM::run(const BytecodeProgram& prog)
     // 函数信息 SoA 缓存
     int fnCount = (int)functions.size();
     int fnPC[256], fnRC[256], fnCO[256];
-#ifdef OPTIMIZATION
+#if defined(OPTIMIZATION) && (defined(_WIN64) || !defined(_WIN32))
     void* fnJIT[256];
 #endif
     for (int i = 0; i < fnCount; i++) {
         fnPC[i] = functions[i].paramCount;
         fnRC[i] = functions[i].regCount;
         fnCO[i] = functions[i].codeOffset;
-#ifdef OPTIMIZATION
+#if defined(OPTIMIZATION) && (defined(_WIN64) || !defined(_WIN32))
         fnJIT[i] = functions[i].jitFunc;
 #endif
     }
@@ -407,7 +407,7 @@ OP_CASE(CALL)
 op_call: {
     int funcIdx = I32(ip + 4);
 
-#ifdef OPTIMIZATION
+#if defined(OPTIMIZATION) && (defined(_WIN64) || !defined(_WIN32))
     // JIT 快速路径：仅当所有参数均为整数时启用
     // 数组/字符串句柄经 JIT 函数往返会丢失 Value 类型（句柄被当作整数），
     // 故遇非整数参数退回解释器 CALL，以完整保留 Value 类型

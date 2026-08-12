@@ -12,8 +12,10 @@
 // 仅在 OPTIMIZATION 宏下启用。
 // 纯整数/算术/输出函数走 JIT，含字符串的函数退回到解释器。
 //
+// JIT 生成 x86-64 机器码，仅支持 x64 目标；32 位构建自动退回解释器。
+//
 
-#ifdef OPTIMIZATION
+#if defined(OPTIMIZATION) && (defined(_WIN64) || !defined(_WIN32))
 
 // JIT 函数类型：最多 6 个 int64 参数，返回 int64
 typedef int64_t (*JITFunc)(int64_t, int64_t, int64_t, int64_t, int64_t,
@@ -192,4 +194,4 @@ class JITCompiler {
                                                          // labelIndex)
 };
 
-#endif // OPTIMIZATION
+#endif // OPTIMIZATION && (WIN64 || non-Windows)
