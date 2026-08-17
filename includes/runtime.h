@@ -13,6 +13,7 @@
 
 #include "ast.h"
 #include "lexer.h"
+#include "utf8.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -502,7 +503,7 @@ static Value exec_call(Node *n, Ctx *ctx)
  */
 static Value exec(Node *n, Ctx *ctx)
 {
-    if (!n)
+    if (unlikely(!n))
         return num_val(0);
 
     switch (n->kind)
@@ -782,29 +783,22 @@ DEFINE_CMP_BINOP(bin_lt, <)
 DEFINE_CMP_BINOP(bin_ge, >=)
 DEFINE_CMP_BINOP(bin_le, <=)
 
-/* 运算符 -> 函数指针 的分发表，下标用 TokenKind 值 */
-static BinOp bin_table[256];
-
-/**
- * 初始化二元运算符函数指针表。
- *
- * 在 main 里程序运行前调用一次；
- * 把每个运算符的 TokenKind 映射到对应的实现函数。
- */
-static void init_bin_ops(void)
-{
-    bin_table[TK_PLUS] = bin_add;
-    bin_table[TK_MINUS] = bin_sub;
-    bin_table[TK_STAR] = bin_mul;
-    bin_table[TK_SLASH] = bin_div;
-    bin_table[TK_PERCENT] = bin_mod;
-    bin_table[TK_EQEQ] = bin_eq;
-    bin_table[TK_NEQ] = bin_ne;
-    bin_table[TK_GT] = bin_gt;
-    bin_table[TK_LT] = bin_lt;
-    bin_table[TK_GE] = bin_ge;
-    bin_table[TK_LE] = bin_le;
-}
+/* 运算符 -> 函数指针 的分发表，下标用 TokenKind 值。
+ * 用 GNU C 指定初始化器（[INDEX] = value）在编译期填好，
+ * 无需运行时 init_bin_ops() 调用。未指定的下标自动为 0。 */
+static BinOp bin_table[256] = {
+    [TK_PLUS] = bin_add,
+    [TK_MINUS] = bin_sub,
+    [TK_STAR] = bin_mul,
+    [TK_SLASH] = bin_div,
+    [TK_PERCENT] = bin_mod,
+    [TK_EQEQ] = bin_eq,
+    [TK_NEQ] = bin_ne,
+    [TK_GT] = bin_gt,
+    [TK_LT] = bin_lt,
+    [TK_GE] = bin_ge,
+    [TK_LE] = bin_le,
+};
 
 /**
  * 应用二元运算符（通过函数指针表分发）。
@@ -817,7 +811,7 @@ static void init_bin_ops(void)
 static Value apply_binop(int op, Value a, Value b)
 {
     BinOp f = bin_table[op];
-    if (!f)
+    if (unlikely(!f))
         error_at("未知运算符", 0);
     return f(a, b);
 }

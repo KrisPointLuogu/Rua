@@ -143,8 +143,6 @@ int main(int argc, char *argv[])
         return argc < 2 ? 1 : 0;
     }
 
-    init_bin_ops();
-
     char *src = read_file(argv[1]);
     debug_print("[LANG] 读取文件：%s（%lu 字节）", argv[1], (unsigned long)strlen(src));
 

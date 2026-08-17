@@ -22,6 +22,70 @@
 /* 统一用 32 位无符号整数表示一个 Unicode 码点 */
 typedef uint32_t Char;
 
+/* ==================== GNU C 扩展：通用安全宏 ==================== */
+
+/**
+ * 分支预测提示：likely(x) 告诉编译器分支 x 大概率成立。
+ *
+ * 基于 __builtin_expect（GNU C 内建函数），配合 -O2 让编译器
+ * 优先布局"成立"路径，减少跳转带来的流水线中断。
+ *
+ * 用法：if (likely(ptr)) { ... }
+ * @param x 分支条件表达式
+ * @return 原样返回 x 的值
+ */
+#define likely(x) __builtin_expect(!!(x), 1)
+
+/**
+ * 分支预测提示：unlikely(x) 告诉编译器分支 x 大概率不成立。
+ *
+ * 用于"几乎不会发生"的异常分支（如 NULL 检查、报错判断），
+ * 让主路径更紧凑。
+ *
+ * 用法：if (unlikely(ptr == NULL)) { ... }
+ * @param x 分支条件表达式
+ * @return 原样返回 x 的值
+ */
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
+/**
+ * 求两个值中的较小者（无副作用版本）。
+ *
+ * 用语句表达式（GNU C）把 x/y 各求值一次存入临时变量，避免
+ * 标准 C 宏里"实参被多次求值"的副作用；再用 typeof 自动推导类型，
+ * 并用 &_a == &_b 做编译期类型一致性检查。
+ *
+ * 用法：int m = bc_min(a, b);
+ * @param x 左值
+ * @param y 右值
+ * @return 较小者
+ */
+#define bc_min(x, y)                                     \
+    ({                                                   \
+        const typeof(x) _bc_a = (x);                     \
+        const typeof(y) _bc_b = (y);                     \
+        (void)(&_bc_a == &_bc_b);                        \
+        _bc_a < _bc_b ? _bc_a : _bc_b;                   \
+    })
+
+/**
+ * 求两个值中的较大者（无副作用版本）。
+ *
+ * 同 bc_min，基于语句表达式 + typeof，实参各求值一次。
+ *
+ * 用法：int m = bc_max(a, b);
+ * @param x 左值
+ * @param y 右值
+ * @return 较大者
+ */
+#define bc_max(x, y)                                     \
+    ({                                                   \
+        const typeof(x) _bc_a = (x);                     \
+        const typeof(y) _bc_b = (y);                     \
+        (void)(&_bc_a == &_bc_b);                        \
+        _bc_a > _bc_b ? _bc_a : _bc_b;                   \
+    })
+
 /**
  * 查看当前位置的字符（不解码前进）。
  *

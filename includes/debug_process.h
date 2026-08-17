@@ -128,20 +128,36 @@ static double debug_timer_ms(DebugTimer t)
 }
 
 /**
- * 输出一条调试信息（与 printf 同格式，printk 风格）。
- * 输出到 stderr，自动带 "[调试] " 前缀并换行；模块标签写进 fmt，
- * 例如 debug_print("[JIT] 函数[%d] → 可 JIT", i)。
- * @param fmt 与 printf 同格式的格式串
+ * 输出一条调试信息（与 printf 同格式，printk 风格）——实现函数。
+ *
+ * 真实输出走这里；用宏 debug_print() 包装，自动带上调用者函数名
+ * （__func__），输出前缀 "[调试] [调用者] "。带 format 属性，让
+ * 编译器按 printf 格式串规则校验实参类型。
+ *
+ * @param caller 调用者函数名（由宏注入 __func__）
+ * @param fmt    与 printf 同格式的格式串
  */
-static void debug_print(const char *fmt, ...)
+static void debug_print_impl(const char *caller, const char *fmt, ...)
+    __attribute__((format(printf, 2, 3)));
+
+static void debug_print_impl(const char *caller, const char *fmt, ...)
 {
     va_list ap;
-    fprintf(stderr, "[调试] ");
+    fprintf(stderr, "[调试] [%s] ", caller);
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     fprintf(stderr, "\n");
 }
+
+/**
+ * 输出一条调试信息（与 printf 同格式，printk 风格）。
+ *
+ * 宏包装：注入调用者函数名 __func__，转发给 debug_print_impl。
+ * 模块标签写进 fmt，例如 debug_print("[JIT] 函数[%d] → 可 JIT", i)。
+ * @param ... 格式串及实参（与 printf 同规则）
+ */
+#define debug_print(...) debug_print_impl(__func__, __VA_ARGS__)
 
 /**
  * 以十六进制逐字节输出一段数据（如 JIT 机器码）。
@@ -308,10 +324,12 @@ static void debug_log_jit_invoke(const Fn *f, const int64_t *a, int nargs,
 
 #else /* 未定义 DEBUG：一切调试工具为空实现 */
 
-static void debug_print(const char *fmt, ...)
+static void debug_print_impl(const char *caller, const char *fmt, ...)
 {
+    (void)caller;
     (void)fmt;
 }
+#define debug_print(...) debug_print_impl(__func__, __VA_ARGS__)
 static RUA_MAYBE_UNUSED void debug_dump_hex(const char *label, const void *data, size_t len)
 {
     (void)label;
