@@ -11,11 +11,11 @@
 #ifndef RUA_RUNTIME_H
 #define RUA_RUNTIME_H
 
+#include "ast.h"
+#include "lexer.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ast.h"
-#include "lexer.h"
 
 /**
  * 值类型标记。
@@ -120,7 +120,8 @@ static Env *env_new(Env *parent)
     Env *e = env_freelist ? env_freelist : (Env *)calloc(1, sizeof(Env));
     if (env_freelist)
         env_freelist = e->next_free;
-    e->bindings = binding_freelist ? binding_freelist : (Binding *)malloc(8 * sizeof(Binding));
+    e->bindings = binding_freelist ? binding_freelist
+                                   : (Binding *)malloc(8 * sizeof(Binding));
     if (binding_freelist)
         binding_freelist = e->bindings->next_free;
     e->parent = parent;
