@@ -17,6 +17,8 @@ CFLAGS ?= -std=gnu11 -O2 -Wall -Wextra -DPLATFORM_LINUX
 SRC     = rua.c
 OUT     = rua
 
+# 头文件清单（仅用于记录依赖，编译时由 rua.c 的 #include 决定实际包含；
+# debug_process.h 调试输出/计时，bytecode.h 静态字节码转储，两者均 DEBUG 生效）
 HDRS = includes/utf8.h includes/lexer.h includes/ast.h includes/parser.h   \
        includes/runtime.h includes/debug_process.h includes/bytecode.h      \
        includes/jit.h                                                       \

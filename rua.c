@@ -152,6 +152,8 @@ int main(int argc, char *argv[])
     DBG_TIMED("编译", prog = compile(src));
     debug_print("[LANG] 编译结果：顶层语句 %d 条，注册函数 %d 个", prog->nstmts,
                 fn_count);
+    /* 静态遍历 AST 生成字节码文本（仅 DEBUG 生效，非 DEBUG 为空实现）；
+     * 放在解释执行之前，输出到 stderr 便于观察程序结构 */
     debug_dump_bytecode(prog);
 
 #ifdef OPTIMIZATION
