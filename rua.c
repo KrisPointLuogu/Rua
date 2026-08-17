@@ -37,6 +37,7 @@
 #include <string.h>
 
 #include "includes/ast.h"
+#include "includes/bytecode.h"
 #include "includes/debug_process.h"
 #include "includes/lexer.h"
 #include "includes/parser.h"
@@ -151,6 +152,7 @@ int main(int argc, char *argv[])
     DBG_TIMED("编译", prog = compile(src));
     debug_print("[LANG] 编译结果：顶层语句 %d 条，注册函数 %d 个", prog->nstmts,
                 fn_count);
+    debug_dump_bytecode(prog);
 
 #ifdef OPTIMIZATION
     DBG_TIMED("JIT 编译", jit_compile_all(fn_table, fn_count));
