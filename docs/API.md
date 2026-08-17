@@ -51,7 +51,7 @@
                         └──> print_val()                   喵叫输出
 ```
 
-错误处理统一走 `error_at()`（打印行号 + 退出）；调试/计时走 `debug.h`（`-DDEBUG` 时生效）。
+错误处理统一走 `error_at()`（打印行号 + 退出）；调试/计时走 `debug_process.h`（`-DDEBUG` 时生效）。
 
 ---
 
@@ -70,7 +70,7 @@
 | `includes/jit/jit_analyze.h` | JIT 分析 | `FnPlan`（vreg 表/帧布局） |
 | `includes/jit/jit_codegen.h` | JIT 代码生成 | 机器码函数 |
 | `includes/jit/jit_debug.h` | JIT 反汇编 | 机器码 → Intel 汇编（DEBUG） |
-| `includes/debug.h` | 调试/计时 | `[调试]` 输出（`-DDEBUG`） |
+| `includes/debug_process.h` | 调试/计时 | `[调试]` 输出（`-DDEBUG`） |
 | `scripts/` | 构建脚本 | `build_easy_linux.py` / `build_easy_windows.py` |
 | `example/` | 示例程序 | `*.rua` 用例 |
 | `docs/API.md` | API 文档 | 本文档 |
@@ -581,7 +581,7 @@ python3 easy/scripts/build_easy_windows.py              # /O2 /DOPTIMIZATION /DD
 ```
 
 - `-DOPTIMIZATION`：启用 JIT（不定义则纯解释）；
-- `-DDEBUG` 详细输出（走 `debug.h` 的 `DBG_PRINT` / `DBG_DUMP_HEX`）：
+- `-DDEBUG` 详细输出（走 `debug_process.h` 的 `debug_print` 系列函数）：
   - **编译期**：逐 Token 明细（行号/类型/文本/数值）、顶层语句与函数清单（形参）、
     JIT 可判定结果（不可 JIT 时附**具体原因**：参数超限 / 含不支持的节点或字符串值 /
     引用全局变量 / 调用了不可 JIT 的函数）；

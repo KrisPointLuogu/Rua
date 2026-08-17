@@ -18,7 +18,7 @@ SRC     = rua.c
 OUT     = rua
 
 HDRS = includes/utf8.h includes/lexer.h includes/ast.h includes/parser.h   \
-       includes/runtime.h includes/debug.h includes/jit.h                   \
+       includes/runtime.h includes/debug_process.h includes/jit.h           \
        includes/jit/jit_base.h includes/jit/jit_emit.h                      \
        includes/jit/jit_analyze.h includes/jit/jit_codegen.h                \
        includes/jit/jit_debug.h

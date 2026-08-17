@@ -17,7 +17,7 @@
  *     ast.h       语法树
  *     parser.h    语法分析
  *     runtime.h   运行时 + 内置二元运算
- *     debug.h     调试输出与计时（定义 DEBUG 才启用）
+ *     debug_process.h 调试输出与计时（定义 DEBUG 才启用）
  *     jit.h       JIT 入口（定义 OPTIMIZATION 才启用）
  *     jit/ 目录    JIT 实现（jit_base/emit/analyze/codegen/debug.h）
  *   docs/API.md   完整 API 文档
@@ -37,7 +37,7 @@
 #include <string.h>
 
 #include "includes/ast.h"
-#include "includes/debug.h"
+#include "includes/debug_process.h"
 #include "includes/lexer.h"
 #include "includes/parser.h"
 #include "includes/runtime.h"
@@ -60,33 +60,7 @@ static Node *compile(const char *src)
     int count = 0;
     Token *toks = lex_all(src, &count);
 
-    DBG_PRINT("词法分析：%d 个 Token（含结束标记）", count);
-#ifdef DEBUG
-    for (int i = 0; i < count; i++)
-    {
-        Token t = toks[i];
-        if (t.kind == TK_NUM)
-        {
-            DBG_PRINT("  Token[%02d] 行%-3d %-10s 值=%lld", i, t.line,
-                      token_kind_name(t.kind), (long long)t.num);
-        }
-        else if (t.kind == TK_STR)
-        {
-            DBG_PRINT("  Token[%02d] 行%-3d %-10s 文本=\"%s\"", i, t.line,
-                      token_kind_name(t.kind), t.text);
-        }
-        else if (t.text)
-        {
-            DBG_PRINT("  Token[%02d] 行%-3d %-10s 文本=%s", i, t.line,
-                      token_kind_name(t.kind), t.text);
-        }
-        else
-        {
-            DBG_PRINT("  Token[%02d] 行%-3d %-10s", i, t.line,
-                      token_kind_name(t.kind));
-        }
-    }
-#endif
+    debug_dump_tokens(toks, count);
 
     Parser ps;
     ps.toks = toks;
@@ -111,22 +85,8 @@ static Node *compile(const char *src)
         }
     }
 
-#ifdef DEBUG
-    DBG_PRINT("顶层语句（%d 条）：", prog->nstmts);
-    for (int i = 0; i < prog->nstmts; i++)
-    {
-        DBG_PRINT("  [%02d] %s", i, node_kind_name(prog->stmts[i]->kind));
-    }
-    DBG_PRINT("注册函数（%d 个）：", fn_count);
-    for (int i = 0; i < fn_count; i++)
-    {
-        Fn *f = fn_table[i];
-        fprintf(stderr, "[调试]   [%02d] %s(参数", i, f->name);
-        for (int j = 0; j < f->nparams; j++)
-            fprintf(stderr, " %s", f->params[j]);
-        fprintf(stderr, " )\n");
-    }
-#endif
+    debug_print_stmts(prog);
+    debug_print_fns(fn_table, fn_count);
 
     for (int i = 0; i < count; i++)
         free(toks[i].text);
@@ -185,22 +145,21 @@ int main(int argc, char *argv[])
     init_bin_ops();
 
     char *src = read_file(argv[1]);
-    DBG_PRINT("读取文件：%s（%lu 字节）", argv[1], (unsigned long)strlen(src));
+    debug_print("[LANG] 读取文件：%s（%lu 字节）", argv[1], (unsigned long)strlen(src));
 
     Node *prog;
     DBG_TIMED("编译", prog = compile(src));
-    DBG_PRINT("编译结果：顶层语句 %d 条，注册函数 %d 个", prog->nstmts,
-              fn_count);
+    debug_print("[LANG] 编译结果：顶层语句 %d 条，注册函数 %d 个", prog->nstmts,
+                fn_count);
 
 #ifdef OPTIMIZATION
     DBG_TIMED("JIT 编译", jit_compile_all(fn_table, fn_count));
 #endif
 
-    Ctx ctx;
-    ctx.env = env_new(NULL);
-    ctx.returning = 0;
-    ctx.retval = num_val(0);
-
+    Ctx ctx = {
+        .env = env_new(NULL),
+        .returning = 0,
+        .retval = num_val(0)};
     DBG_TIMED("用户源码运行时间", exec(prog, &ctx));
     return 0;
 }

@@ -19,7 +19,7 @@
 #ifndef RUA_JIT_H
 #define RUA_JIT_H
 
-#include "debug.h"
+#include "debug_process.h"
 #include "jit/jit_codegen.h"
 #include "jit/jit_debug.h"
 
@@ -53,7 +53,7 @@ static void jit_compile_all(Fn **table, int count)
     jit.table_addr = (int64_t)g_jit_table;
     if (!jit.code)
     {
-        DBG_PRINT("JIT 代码内存分配失败");
+        debug_print("[JIT] JIT 代码内存分配失败");
         return;
     }
 
@@ -63,12 +63,12 @@ static void jit_compile_all(Fn **table, int count)
         jit_plan_function(table[i], table, count, &plans[i]);
         if (plans[i].jittable)
         {
-            DBG_PRINT("函数[%d] %s → 可 JIT", i, table[i]->name);
+            debug_print("[JIT] 函数[%d] %s → 可 JIT", i, table[i]->name);
         }
         else
         {
-            DBG_PRINT("函数[%d] %s → 不可 JIT（%s）", i, table[i]->name,
-                      plans[i].reject_reason ? plans[i].reject_reason : "未知原因");
+            debug_print("[JIT] 函数[%d] %s → 不可 JIT（%s）", i, table[i]->name,
+                        plans[i].reject_reason ? plans[i].reject_reason : "未知原因");
         }
     }
 
@@ -88,9 +88,9 @@ static void jit_compile_all(Fn **table, int count)
                 {
                     plans[i].jittable = 0;
                     plans[i].reject_reason = "调用了不可 JIT 的函数";
-                    DBG_PRINT("函数[%d] %s → 因调用[%d] %s 改为不可 JIT", i,
-                              table[i]->name, j,
-                              (j >= 0 && j < count) ? table[j]->name : "?");
+                    debug_print("[JIT] 函数[%d] %s → 因调用[%d] %s 改为不可 JIT", i,
+                                table[i]->name, j,
+                                (j >= 0 && j < count) ? table[j]->name : "?");
                     changed = 1;
                     break;
                 }
@@ -118,57 +118,37 @@ static void jit_compile_all(Fn **table, int count)
         g_jit_table[i] = addr;
         table[i]->jittable = 1;
         table[i]->jit_addr = (void *)addr;
-#ifdef DEBUG
         {
             size_t size = (size_t)(jit.code_pos - offset);
-            DBG_PRINT("编译函数[%d] %s → 地址=%p 机器码=%zu 字节", i,
-                      table[i]->name, (void *)addr, size);
-            DBG_PRINT(
-                "  vreg：最多 v%d（参数 %d 个，临时/局部 %d 个，溢出槽 %d 个）",
+            debug_print("[JIT] 编译函数[%d] %s → 地址=%p 机器码=%zu 字节", i,
+                        table[i]->name, (void *)addr, size);
+            debug_print(
+                "[JIT]   vreg：最多 v%d（参数 %d 个，临时/局部 %d 个，溢出槽 %d 个）",
                 plans[i].max_vreg, plans[i].param_count,
                 plans[i].max_vreg - plans[i].param_count, plans[i].spill_count);
-            DBG_PRINT("  帧：pushed=%d 字节，frame=%d 字节，%s 快照槽 %d 字节",
-                      plans[i].pushed_bytes, plans[i].frame_bytes,
-                      plans[i].needs_call ? "含" : "无", plans[i].save_bytes);
-            fprintf(stderr, "[调试]   callee-saved 保存:");
-            for (int k = 0; k < JIT_CALLEE_SAVED_COUNT; k++)
-            {
-                int reg = JIT_CALLEE_SAVED[k];
-                if (plans[i].callee_saved[reg])
-                {
-                    fprintf(stderr, " %s", jit_reg_name(reg));
-                }
-            }
-            fprintf(stderr, "\n");
+            debug_print("[JIT]   帧：pushed=%d 字节，frame=%d 字节，%s 快照槽 %d 字节",
+                        plans[i].pushed_bytes, plans[i].frame_bytes,
+                        plans[i].needs_call ? "含" : "无", plans[i].save_bytes);
+            debug_dump_callee_saved(&plans[i]);
             for (int k = 0; k < plans[i].var_count; k++)
             {
-                DBG_PRINT("  变量 %s → v%d", plans[i].vars[k].name,
-                          plans[i].vars[k].vreg);
+                debug_print("[JIT]   变量 %s → v%d", plans[i].vars[k].name,
+                            plans[i].vars[k].vreg);
             }
-            if (plans[i].ncallees > 0)
-            {
-                fprintf(stderr, "[调试]   调用:");
-                for (int k = 0; k < plans[i].ncallees; k++)
-                {
-                    int j = plans[i].callees[k];
-                    fprintf(stderr, " [%d]%s", j, table[j]->name);
-                }
-                fprintf(stderr, "\n");
-            }
+            debug_dump_calls(&plans[i], table);
             jit_dump_disasm("  机器码", jit.code + offset, size);
         }
-#endif
     }
 
     for (int i = 0; i < count; i++)
     {
         if (!plans[i].jittable)
         {
-            DBG_PRINT("JIT 函数[%d] %s → 解释执行", i, table[i]->name);
+            debug_print("[JIT] 函数[%d] %s → 解释执行", i, table[i]->name);
         }
     }
-    DBG_PRINT("JIT 完成：总机器码 %lld 字节，字符串数据 %lld 字节",
-              (long long)jit.code_pos, (long long)jit.data_pos);
+    debug_print("[JIT] JIT 完成：总机器码 %lld 字节，字符串数据 %lld 字节",
+                (long long)jit.code_pos, (long long)jit.data_pos);
 }
 
 /* ==================== 解释器 → JIT 分发 ==================== */
@@ -189,16 +169,7 @@ static int64_t jit_invoke(const Fn *f, const Value *args, int nargs)
     for (int i = 0; i < nargs && i < 6; i++)
         a[i] = args[i].num;
     int64_t r = fn(a[0], a[1], a[2], a[3], a[4], a[5]);
-#ifdef DEBUG
-    fprintf(stderr, "[调试] JIT 调用 %s(", f->name);
-    for (int i = 0; i < nargs; i++)
-    {
-        if (i)
-            fprintf(stderr, ", ");
-        fprintf(stderr, "%lld", (long long)a[i]);
-    }
-    fprintf(stderr, ") → %lld\n", (long long)r);
-#endif
+    debug_log_jit_invoke(f, a, nargs, r);
     return r;
 }
 

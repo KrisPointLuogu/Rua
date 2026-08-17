@@ -8,7 +8,7 @@
 #ifndef RUA_JIT_DEBUG_H
 #define RUA_JIT_DEBUG_H
 
-#include "../debug.h"
+#include "../debug_process.h"
 #include "jit_base.h"
 
 #ifdef DEBUG
@@ -282,6 +282,21 @@ static void jit_dump_disasm(const char* label, const uint8_t* code, size_t len)
 #undef ASM_OPERAND
 #undef ASM_BYTES
     }
+}
+
+#else /* 未定义 DEBUG：反汇编输出为空 */
+
+/**
+ * 反汇编一段机器码并输出到 stderr（未定义 DEBUG 时为空实现）。
+ * @param label 说明文字（如函数名）
+ * @param code  机器码起始
+ * @param len   字节数
+ */
+static void jit_dump_disasm(const char* label, const uint8_t* code, size_t len)
+{
+    (void)label;
+    (void)code;
+    (void)len;
 }
 
 #endif /* DEBUG */
