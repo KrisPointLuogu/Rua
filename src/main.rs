@@ -16,6 +16,7 @@
 
 mod ast;
 mod debug;
+mod jit;
 mod lexer;
 mod parser;
 mod runtime;
@@ -35,9 +36,10 @@ use runtime::Runtime;
  */
 fn usage(prog: &str) {
     println!("Rua 简易解释器");
-    println!("用法： {} <源文件.rua> [--debug] [--dump]", prog);
+    println!("用法： {} <源文件.rua> [--debug] [--dump] [--no-jit]", prog);
     println!("  --debug   输出词法/AST/函数表/耗时等调试信息");
     println!("  --dump    转储可 VM 函数的字节码");
+    println!("  --no-jit  关闭 JIT（回退字节码 VM + 解释器）");
     println!("  -h, --help  显示本帮助");
 }
 
@@ -64,13 +66,16 @@ fn read_file(path: &str) -> Result<String> {
 fn run(args: Vec<String>) -> Result<()> {
     let mut debug_on = false;
     let mut dump = false;
+    let mut jit_enabled = true;
     let mut file: Option<String> = None;
 
-    // 参数顺序无关：--debug/--dump/-h/--help 是开关，其余视为文件路径。
+    // 参数顺序无关：--debug/--dump/--jit/--no-jit/-h/--help 是开关，其余视为文件路径。
     for a in args {
         match a.as_str() {
             "--debug" => debug_on = true,
             "--dump" => dump = true,
+            "--jit" => jit_enabled = true,
+            "--no-jit" => jit_enabled = false,
             "-h" | "--help" => {
                 usage("rua");
                 return Ok(());
@@ -103,15 +108,15 @@ fn run(args: Vec<String>) -> Result<()> {
     }
 
     let build_t = if debug_on {
-        Some(debug::Timer::new("VM 预编译"))
+        Some(debug::Timer::new("VM/JIT 预编译"))
     } else {
         None
     };
-    let rt = Runtime::build(&fns);
+    let rt = Runtime::build(&fns, jit_enabled);
     drop(build_t);
 
     if debug_on {
-        debug::dump_functions(&rt.fns, &rt.vm);
+        debug::dump_functions(&rt.fns, &rt.vm, &rt.jit, rt.jit_enabled);
     }
     if dump {
         debug::dump_bytecode(&rt.vm);

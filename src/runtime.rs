@@ -18,6 +18,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ast::{Node, NodeKind, Result, RuaError};
+use crate::jit::{self, JitEngine};
 use crate::lexer::TokenKind;
 use crate::rua_err;
 use crate::vm::{self, VmEngine};
@@ -64,22 +65,27 @@ impl Value {
  * @param params 形参名列表
  * @param body   函数体（N_BLOCK 节点）
  * @param vm     该函数在 VmEngine 中的索引（None = 不可 VM，走树遍历解释）
+ * @param jit    该函数在 JitEngine 中的索引（None = 不可 JIT）
  */
 pub struct Function {
     pub name: String,
     pub params: Vec<String>,
     pub body: Node,
     pub vm: Option<usize>,
+    pub jit: Option<usize>,
 }
 
 /**
- * 运行时：持有函数表与字节码 VM 引擎，负责解释执行。
+ * 运行时：持有函数表、字节码 VM 引擎与 JIT 引擎，负责解释执行。
  *
  * 对应 C 版全局 fn_table / fn_count；Rust 版把全局状态收进结构体。
+ * jit_enabled 对应 --jit/--no-jit 开关（默认 JIT 开）。
  */
 pub struct Runtime {
     pub fns: Vec<Function>,
     pub vm: VmEngine,
+    pub jit: JitEngine,
+    pub jit_enabled: bool,
 }
 
 /**
@@ -395,6 +401,17 @@ fn exec_call(rt: &Runtime, n: &Node, ctx: &mut Ctx) -> Result<Value> {
         arg_vals.push(rt.exec(a, ctx)?);
     }
 
+    // JIT 快路径：可 JIT 时优先（仅整数实参，判定已保证）。
+    if rt.jit_enabled {
+        if let Some(idx) = f.jit {
+            let mut argv = Vec::with_capacity(arg_vals.len());
+            for a in &arg_vals {
+                argv.push(a.num_field());
+            }
+            return Ok(num_val(jit::invoke(&rt.jit, idx, &argv)));
+        }
+    }
+
     // VM 快路径：只接受整数实参（可 VM 判定已保证）。
     if let Some(idx) = f.vm {
         let mut argv = Vec::with_capacity(arg_vals.len());
@@ -567,18 +584,20 @@ impl Runtime {
     }
 
     /**
-     * 构建运行时：把顶层 N_FUNC 节点编译成函数表，并预编译可 VM 函数。
+     * 构建运行时：把顶层 N_FUNC 节点编译成函数表，并预编译可 VM / 可 JIT 函数。
      *
-     * 对应 C 版 register_fn + jit_compile_all：先给所有顶层函数在 VmEngine
-     * 中判定/编译（两遍），再为每个 Function 记录其 VM 索引（None 表示
-     * 不可 VM，运行期走树遍历解释）。
+     * 对应 C 版 register_fn + jit_compile_all：先给所有顶层函数在 VmEngine 与
+     * JitEngine 中判定/编译（两遍），再为每个 Function 记录其 VM/JIT 索引
+     * （None 表示不可编译，运行期走树遍历解释）。
      *
-     * @param fns 顶层函数定义节点（N_FUNC）列表
+     * @param fns         顶层函数定义节点（N_FUNC）列表
+     * @param jit_enabled 是否启用 JIT（--jit/--no-jit）
      * @return 组装好的运行时
      */
-    pub fn build(fns: &[Node]) -> Runtime {
+    pub fn build(fns: &[Node], jit_enabled: bool) -> Runtime {
         let refs: Vec<&Node> = fns.iter().collect();
         let engine = vm::compile_functions(&refs);
+        let jit_engine = jit::compile_functions(&refs);
         let functions = fns
             .iter()
             .map(|f| {
@@ -593,12 +612,15 @@ impl Runtime {
                     params,
                     body: (*body).clone(),
                     vm: engine.get_idx(&name),
+                    jit: jit_engine.get_idx(&name),
                 }
             })
             .collect();
         Runtime {
             fns: functions,
             vm: engine,
+            jit: jit_engine,
+            jit_enabled,
         }
     }
 }

@@ -16,14 +16,16 @@
           ├──> Parser::parse_tokens(toks) ── 语法分析 → (prog, fns)
           │        └──> parse_expr/parse_stmt/parse_block/parse_function 递归下降
           │
-          ├──> Runtime::build(&fns) ──────── 预编译可 VM 函数
-          │        └──> vm::compile_functions ── 可 VM 判定 + 闭包传播 + 字节码生成
+          ├──> Runtime::build(&fns) ──────── 预编译可 VM / 可 JIT 函数
+          │        ├──> vm::compile_functions ── 可 VM 判定 + 闭包传播 + 字节码生成
+          │        └──> jit::compile_functions ── 可 JIT 判定 + 两遍编译 + x86-64 机器码
           │
           └──> Runtime::run(&prog) ───────── 解释执行
                    └──> Runtime::exec 递归分发
                         ├──> env_get/env_set/env_bind  变量读写
                         ├──> exec_call                 函数调用
-                        │     ├──> vm::invoke          VM 函数
+                        │     ├──> jit::invoke         JIT 函数（默认开启）
+                        │     ├──> vm::invoke          VM 函数（--no-jit 或不可 JIT）
                         │     └──> 树遍历解释          其余函数
                         ├──> apply_binop              二元运算
                         ├──> array_get/array_set      数组读写
@@ -41,7 +43,8 @@ stderr 并 `exit(1)`。
 | `src/lexer.rs` | `includes/lexer.h` + `includes/utf8.h` | `TokenKind`/`Token`/`Lexer`（UTF-8 由 `char` 码点迭代承担） |
 | `src/parser.rs` | `includes/parser.h` | 递归下降语法分析（优先级爬升） |
 | `src/runtime.rs` | `includes/runtime.h` | `Value`/`Env`/`Ctx`、树遍历解释、二元运算 |
-| `src/vm.rs` | `includes/jit*.h` | 纯整数快路径栈机字节码 VM（替代 x86-64 JIT） |
+| `src/vm.rs` | 字节码 VM（中间层） | 纯整数快路径栈机字节码 VM（`--no-jit` 时的快路径） |
+| `src/jit.rs` | `includes/jit*.h` | x86-64 JIT：AST 直编机器码（手写发射、零依赖） |
 | `src/debug.rs` | `includes/debug_process.h` + `includes/bytecode.h` | `--debug`/`--dump` 输出与计时 |
 | `src/main.rs` | `rua.c` | CLI 入口 |
 
@@ -125,9 +128,61 @@ pub struct RuaError { line: usize, msg: String }
 - `apply_binop` 按 `TokenKind` 分发：`+` 支持字符串拼接，`==`/`!=` 支持字符串
   内容比较，其余算术/比较要求操作数为数字；
 - 函数调用 `exec_call`：`喵叫` 逐参打印（空格分隔、末尾换行）；用户函数新建
-  子环境绑形参，先看是否可 VM，是则走 `vm::invoke`。
+  子环境绑形参，优先走 JIT（可 JIT 且启用时），否则可 VM 走 `vm::invoke`，
+  其余树遍历解释。
 
-## 五、字节码 VM（vm.rs）
+## 五、x86-64 JIT（jit.rs）
+
+> 对应 C 版 includes/jit*.h。把「可 JIT」的纯整数函数直接从 AST 编译成
+> x86-64 机器码（SysV ABI），**手写字节发射、零第三方依赖**（可执行内存用
+> `extern "C"` 直接链接 libc 的 `mmap`）。默认开启，`--no-jit` 关闭回退 VM。
+
+### 可 JIT 判定（共享 vm.rs 的 scan 判定）
+可 JIT = 可 VM（节点/引用/闭包判定，见 §六）&& **参数 ≤6**（SysV 寄存器
+参数上限）&& 平台为 Linux x86-64。闭包传播同 VM（调用不可 JIT → 自己也不可 JIT）。
+
+### 固定 vreg→物理寄存器映射（SysV）
+```
+v0  → RAX     结果/返回值
+v1  → RBX     形参1（序言从 RDI 拷入）
+v2  → R12     形参2（RSI）   v3 → R13（RDX）
+v4  → R14     形参4（RCX）   v5 → R15（R8）
+v6  → RSI     形参6（R9）    v7 → RDI   v8 → RDX
+v9  → RCX     v10 → R8       v11 → R9   v12 → R10  v13 → R11
+v14+ → 栈溢出槽 [rbp - k*8]
+```
+- 序言：`push rbp; mov rbp,rsp` → push 用到的 callee-saved（RBX/R12~R15）→
+  `sub rsp, frame` → 清 RAX → 形参从 ABI 参数寄存器拷到 v1..vP；
+- 帧对齐：入口 RSP ≡ 8 (mod 16)，`(pushed + frame) ≡ 8 (mod 16)` 反推帧大小；
+- 调用/除模/打印前把 caller-saved（RSI/RDI/RDX/RCX/R8~R11）快照进帧内槽，
+  调用后恢复（对应 C 版 jit_save_callersaved / jit_restore_callersaved）。
+
+### 表达式 → 机器码
+- `N_NUM` → `mov reg, imm32/64`；`N_IDENT` → 按变量表 vreg 拷贝；
+- `N_BINARY`：加减乘走 `RAX` 累加 + `add/sub/imul`；`/` `%` 走 `cqo + idiv`
+  （先快照 caller-saved，算完恢复，取模再 `mov rax, rdx`）；比较走 `cmp +
+  setcc + movzx`；
+- `N_CALL`：实参装入 ABI 参数寄存器（caller-saved 源从快照槽读）→ 经
+  函数地址表间接 `call`（`rax = [table + idx*8]`）→ 结果从 `RAX` 存回 dst。
+
+### 函数内 喵叫
+- 字符串字面量实参：字面量进数据区，`mov rdi, 数据区地址`；
+- 整数实参：先 `jit_itoa` 格式化进全局 scratch，再 `jit_print(msg, endl)`
+  （末参换行 `\n`、非末参空格 ` `，与解释器逐字节一致）；
+- 辅助函数 `jit_print` / `jit_itoa` 为 `#[no_mangle] extern "C"`，机器码直接调用。
+
+### 两遍编译 + 函数地址表
+1. 逐个 plan（可 JIT 判定 + 变量表 + 帧布局）→ 闭包传播；
+2. 第一遍给可 JIT 函数在 `entries`（g_jit_table）中占位；
+3. 第二遍逐个发射机器码，写入可执行内存，地址写回表。
+   递归/互调在运行期查表，天然正确。
+
+### 与 C 版 JIT 的差异
+- 仅 Linux x86-64（`cfg` 隔离）；C 版另有 Windows x64；
+- 除 0 由 CPU 触发 SIGFPE 终止进程（C 版 JIT 同为未定义行为；VM/解释器会报错）；
+- `--debug` 对 JIT 只输出「函数清单表」（已 JIT / 未 JIT），不做机器码反汇编。
+
+## 六、字节码 VM（vm.rs）
 
 ### 可 VM 判定（对应 C 版 JIT eligibility）
 函数全部满足才编译为字节码：
@@ -155,37 +210,40 @@ Jmp Jz / Call / CallPrint / Ret / Pop`。
 - 无显式 `返回` 的函数返回 0（与 C 版 JIT 语义一致；树遍历解释器返回函数体
   最后一条语句的值）。
 
-## 六、CLI
+## 七、CLI
 
 ```
-rua <源文件.rua> [--debug] [--dump]
+rua <源文件.rua> [--debug] [--dump] [--no-jit]
 ```
 
 | 参数 | 行为 |
 | --- | --- |
 | 无参数 | 打印用法，`exit(1)` |
 | `-h` / `--help` | 打印用法，`exit(0)` |
-| `--debug` | 输出词法 Token 明细、AST、函数表与可 VM 状态、各阶段耗时 |
+| `--debug` | 输出词法 Token 明细、AST、函数表（含 JIT/VM 状态）、各阶段耗时 |
 | `--dump` | 转储可 VM 函数的字节码（反汇编文本） |
+| `--jit` / `--no-jit` | 开启（默认）/ 关闭 JIT，关闭后回退「VM + 解释器」 |
 
 参数顺序无关；`--debug`/`--dump` 输出到 stderr，不污染程序 stdout。
 
-## 七、构建与验证
+## 八、构建与验证
 
 ```bash
 cargo build               # debug
 cargo build --release     # release
-./target/release/rua example/example.rua
+./target/release/rua example/example.rua        # 默认 JIT
+./target/release/rua example/example.rua --no-jit   # VM + 解释器对拍
 ```
 
-预期输出对照见 `docs/expected-output.md`（由 C 版修复函数调用子环境 bug 后生成）。
+JIT 与 VM 两种模式的输出应逐字节一致（可用 `--no-jit` 互相参照）。
 
-## 八、移植说明（相对 C 版的行为差异）
+## 九、移植说明（相对 C 版的行为差异）
 
 | 项 | C 版 | Rust 版 |
 | --- | --- | --- |
 | 运行时算术错误行号 | 部分固定为 0 | 精确源码行号 |
-| 可 VM 函数无返回语句 | JIT 返回 0 | 同（VM 返回 0） |
+| 可编译函数无返回语句 | JIT 返回 0 | 同（JIT/VM 返回 0） |
 | 数组语义 | 句柄共享 | 同（`Rc<RefCell<Vec<Value>>>`） |
-| JIT | x86-64 机器码 | 栈机字节码 VM（纯安全代码） |
+| JIT | x86-64 机器码（Windows+Linux） | 手写 x86-64（仅 Linux，`cfg` 隔离） |
+| JIT 除 0 | 未定义行为 | SIGFPE 终止（VM/解释器正常报错） |
 | 调试输出 | `-DDEBUG` 编译宏 | `--debug`/`--dump` 命令行参数 |

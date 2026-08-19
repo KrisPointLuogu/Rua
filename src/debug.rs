@@ -9,6 +9,7 @@
 use std::time::Instant;
 
 use crate::ast::{node_kind_name, Node};
+use crate::jit;
 use crate::lexer::{token_kind_name, Token};
 use crate::runtime::Function;
 use crate::vm;
@@ -185,22 +186,45 @@ pub fn dump_prog(prog: &Node) {
 }
 
 /**
- * 打印函数表与可 VM 状态（对应 C 版 debug_print_fns）。
+ * 打印函数表与可 VM / 可 JIT 状态（对应 C 版 debug_print_fns）。
  *
- * 每个函数列出形参，并标注可 VM（给出 VM 索引）或解释执行。
+ * 每个函数列出形参，并标注可 VM / 可 JIT 或解释执行（--debug 的表格输出）。
  *
- * @param fns    运行时函数表
- * @param engine VM 引擎（用于统计可 VM 函数数）
+ * @param fns        运行时函数表
+ * @param engine     VM 引擎（用于统计可 VM 函数数）
+ * @param jit        JIT 引擎（用于统计可 JIT 函数数）
+ * @param jit_enabled 是否启用 JIT
  */
-pub fn dump_functions(fns: &[Function], engine: &vm::VmEngine) {
+pub fn dump_functions(
+    fns: &[Function],
+    engine: &vm::VmEngine,
+    jit: &jit::JitEngine,
+    jit_enabled: bool,
+) {
     eprintln!("[调试] 注册函数 {} 个", fns.len());
     for f in fns {
-        match f.vm {
-            Some(idx) => eprintln!("  函数 {}（形参 {:?}）→ 可 VM [{}]", f.name, f.params, idx),
-            None => eprintln!("  函数 {}（形参 {:?}）→ 解释执行", f.name, f.params),
-        }
+        let jit_state = if !jit_enabled {
+            "已关闭".to_string()
+        } else if f.jit.is_some() {
+            format!("JIT [{}]", f.jit.unwrap())
+        } else {
+            "未 JIT".to_string()
+        };
+        let vm_state = if f.vm.is_some() {
+            format!("VM [{}]", f.vm.unwrap())
+        } else {
+            "解释".to_string()
+        };
+        eprintln!(
+            "  函数 {}（形参 {:?}）→ {} / {}",
+            f.name, f.params, jit_state, vm_state
+        );
     }
-    eprintln!("[调试] 可 VM 函数共 {} 个", engine.len());
+    eprintln!(
+        "[调试] 可 JIT 函数 {} 个 / 可 VM 函数 {} 个",
+        jit.len(),
+        engine.len()
+    );
 }
 
 /**

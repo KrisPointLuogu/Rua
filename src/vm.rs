@@ -165,9 +165,34 @@ impl VmEngine {
  * @param vars    局部变量表：名字 → 槽位（形参先占 0..P-1，N_VAR 按序续分）
  * @param callees 被调用函数名列表（用于闭包传播）
  */
-struct ScanInfo {
-    vars: HashMap<String, u32>,
-    callees: Vec<String>,
+pub(crate) struct ScanInfo {
+    pub(crate) vars: HashMap<String, u32>,
+    pub(crate) callees: Vec<String>,
+}
+
+/**
+ * 对一个函数做可 VM 预扫描（共享判定入口）。
+ *
+ * JIT 用同一判定作为「可 JIT」的前置条件（可 JIT = 可 VM && 参数 ≤6 &&
+ * 平台 x86-64）。通过返回局部变量表与调用列表；不通过返回 None。
+ *
+ * @param params 形参名列表
+ * @param body   函数体（N_BLOCK）
+ * @return 通过则返回预扫描信息，否则 None
+ */
+pub(crate) fn scan_function(params: &[String], body: &Node) -> Option<ScanInfo> {
+    let mut info = ScanInfo {
+        vars: HashMap::new(),
+        callees: Vec::new(),
+    };
+    for (k, p) in params.iter().enumerate() {
+        info.vars.insert(p.clone(), k as u32);
+    }
+    if scan_block(body, &mut info) {
+        Some(info)
+    } else {
+        None
+    }
 }
 
 /**
@@ -535,16 +560,7 @@ pub fn compile_functions(fns: &[&Node]) -> VmEngine {
     for (i, f) in fns.iter().enumerate() {
         if let Some((name, params, body)) = func_parts(f) {
             name_to_idx.insert(name.to_string(), i);
-            let mut info = ScanInfo {
-                vars: HashMap::new(),
-                callees: Vec::new(),
-            };
-            // 形参先占槽位 0..P-1。
-            for (k, p) in params.iter().enumerate() {
-                info.vars.insert(p.clone(), k as u32);
-            }
-            let ok = scan_block(body, &mut info);
-            scans.push(if ok { Some(info) } else { None });
+            scans.push(scan_function(params, body));
         } else {
             scans.push(None);
         }
