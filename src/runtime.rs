@@ -377,10 +377,10 @@ fn exec_call(rt: &Runtime, n: &Node, ctx: &mut Ctx) -> Result<Value> {
     };
 
     if name == "喵叫" {
-        for (i, arg) in args.iter().enumerate() {
-            if i > 0 {
-                print!(" ");
-            }
+        for (_i, arg) in args.iter().enumerate() {
+            // if i > 0 {
+                // print!(" ");
+            // }
             let v = rt.exec(arg, ctx)?;
             print_val(&v);
         }

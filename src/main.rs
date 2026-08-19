@@ -94,7 +94,7 @@ fn run(args: Vec<String>) -> Result<()> {
 
     let src = read_file(&path)?;
     if debug_on {
-        eprintln!("[调试] 读取文件：{}（{} 字节）", path, src.len());
+        eprintln!("[调试] 读取文件：{}({} 字节)", path, src.len());
     }
 
     let toks = lex_all(&src)?;
