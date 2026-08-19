@@ -479,10 +479,10 @@ static Value exec_call(Node *n, Ctx *ctx)
     for (int i = 0; i < f->nparams; i++)
         env_bind(e, f->params[i], arg_vals[i]);
 
-    Ctx child;
-    child.env = e;
-    child.returning = 0;
-    child.retval = num_val(0);
+    Ctx child = {
+        .env = 0,
+        .returning = 0,
+        .retval = num_val(0)};
     Value r = exec(f->body, &child);
     env_release(e);
     return child.returning ? child.retval : r;
@@ -513,11 +513,11 @@ static Value exec(Node *n, Ctx *ctx)
 
     case N_STR:
     {
-        Value v;
-        v.type = V_STR;
-        v.num = 0;
-        v.str = n->str;
-        v.arr = NULL;
+        Value v = {
+            .type = V_STR,
+            .num = 0,
+            .str = n->str,
+            .arr = NULL};
         return v;
     }
 
@@ -539,11 +539,11 @@ static Value exec(Node *n, Ctx *ctx)
         a->items = (Value *)malloc(sizeof(Value) * n->num);
         for (long long i = 0; i < n->num; i++)
             a->items[i] = init;
-        Value v;
-        v.type = V_ARR;
-        v.num = 0;
-        v.str = NULL;
-        v.arr = a;
+        Value v = {
+            .type = V_ARR,
+            .num = 0,
+            .str = NULL,
+            .arr = a};
         env_bind(ctx->env, n->str, v);
         return v;
     }
@@ -663,11 +663,11 @@ static Value bin_add(Value a, Value b)
             free(sa);
         if (b.type != V_STR)
             free(sb);
-        Value v;
-        v.type = V_STR;
-        v.num = 0;
-        v.str = res;
-        v.arr = NULL;
+        Value v = {
+            .type = V_STR,
+            .num = 0,
+            .str = res,
+            .arr = NULL};
         return v;
     }
     return num_val(a.num + b.num);
