@@ -448,8 +448,8 @@ static Value exec_call(Node *n, Ctx *ctx)
     {
         for (int i = 0; i < n->nargs; i++)
         {
-            if (i > 0)
-                printf(" ");
+            // if (i > 0)
+            // printf(" ");
             print_val(exec(n->args[i], ctx));
         }
         printf("\n");
