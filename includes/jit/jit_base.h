@@ -125,7 +125,7 @@ enum {
 /* ==================== 打印辅助（JIT 代码调用） ==================== */
 
 static const char JIT_ENDL_NL[] = "\n";
-static const char JIT_ENDL_SP[] = " ";
+static const char JIT_ENDL_NONE[] = "";
 static char jit_scratch[64];
 
 /**
@@ -133,7 +133,7 @@ static char jit_scratch[64];
  * 由 JIT 生成的机器码调用（参数走平台 ABI 寄存器）。
  *
  * @param msg  要打印的文本
- * @param endl 结束符（"\n" 或 " "）
+ * @param endl 结束符（"\n" 或 ""）
  */
 static void jit_print(const char* msg, const char* endl)
 {

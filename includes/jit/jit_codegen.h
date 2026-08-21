@@ -106,7 +106,7 @@ static void jit_emit_binop(Jit* jit, const FnPlan* p, int op, int lt, int rt,
  * 用户函数：快照 caller-saved → 装 ABI 参数寄存器（caller-saved 源从快照槽读）
  * → 表间接 call → 恢复 → 结果从 RAX 存入 dst。
  * 喵叫：先快照，逐实参打印（整数先 itoa 到
- * jit_scratch），非末参空格、末参换行。
+ * jit_scratch），实参间无分隔符、末参后换行。
  *
  * @param jit      编译状态
  * @param p        函数计划
@@ -136,7 +136,7 @@ static void jit_emit_call(Jit* jit, const FnPlan* p, const Node* n, Fn** table,
                 jit_emit_mov64(jit, REG_RDI, (int64_t)jit_scratch);
             }
             int64_t endl = (i == n->nargs - 1) ? (int64_t)JIT_ENDL_NL :
-                                                 (int64_t)JIT_ENDL_SP;
+                                                 (int64_t)JIT_ENDL_NONE;
             jit_emit_mov64(jit, REG_RSI, endl);
             jit_emit_mov64(jit, REG_RAX, (int64_t)jit_print);
             jit_emit_call_reg(jit, REG_RAX);

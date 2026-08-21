@@ -7,6 +7,14 @@
 > → 解释执行（可选 JIT 加速）。
 >
 > 分两大部分：**第一部分** 解释器（utf8/lexer/ast/parser/runtime）；**第二部分** JIT 编译器（jit*.h）。
+>
+> 想按「一次运行的旅程」顺序了解工作流程，请读 [workflow/ 系列](workflow/)：
+> [01-总览](workflow/01-总览.md) ·
+> [02-词法与语法分析](workflow/02-词法与语法分析.md) ·
+> [03-运行时](workflow/03-运行时.md) ·
+> [04-快路径](workflow/04-快路径.md) ·
+> [05-错误处理](workflow/05-错误处理.md) ·
+> [06-调试工具](workflow/06-调试工具.md)。
 
 ---
 

@@ -434,7 +434,7 @@ static Value print_val(Value v)
 /**
  * 执行函数调用（N_CALL 节点）。
  *
- * 内置"喵叫"：逐参数求值并打印，以空格分隔，末尾换行。
+ * 内置"喵叫"：逐参数求值并打印（参数间无分隔符），末尾换行。
  * 用户函数：新建子环境绑定形参，在子上下文中求值函数体，
  * 调用结束后回收子环境，返回其返回值（无返回语句时返回函数体求值结果）。
  *
@@ -480,7 +480,7 @@ static Value exec_call(Node *n, Ctx *ctx)
         env_bind(e, f->params[i], arg_vals[i]);
 
     Ctx child = {
-        .env = 0,
+        .env = e,
         .returning = 0,
         .retval = num_val(0)};
     Value r = exec(f->body, &child);

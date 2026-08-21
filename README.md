@@ -21,6 +21,16 @@
 喵叫(10 + number)
 ```
 
+## 📚文档
+- [API 文档](docs/API.md) —— 模块结构与接口参考
+- 工作流程系列（docs/workflow/）：
+  - [01-总览](docs/workflow/01-总览.md) —— 一次运行的完整旅程
+  - [02-词法与语法分析](docs/workflow/02-词法与语法分析.md)
+  - [03-运行时](docs/workflow/03-运行时.md) —— 值、环境链、函数调用
+  - [04-快路径](docs/workflow/04-快路径.md) —— x86-64 JIT
+  - [05-错误处理](docs/workflow/05-错误处理.md)
+  - [06-调试工具](docs/workflow/06-调试工具.md)
+
 ## 🧐已知事项
 - **环境兼容性提示**：可能出现中文显示以及命令无法正常执行问题，根据实际表现情况，Rua对Windows11兼容性最佳，但代码中也含对Windows10/7、macOS、Linux的支持部分，您可自行编译尝试。
 - **Microsoft Edge等浏览器安全警告**：从此仓库下载的Rua解释器绝对不会包含攻击代码等有害代码，请放心下载使用。
