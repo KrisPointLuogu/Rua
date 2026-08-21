@@ -359,7 +359,7 @@ fn print_val(v: &Value) {
 /**
  * 执行函数调用（N_CALL 节点，对应 C 版 exec_call）。
  *
- * 内置「喵叫」：逐参数求值并打印，以空格分隔，末尾换行。
+ * 内置「喵叫」：逐参数求值并打印（参数间无分隔符），末尾换行。
  * 用户函数：先在函数表查名字、校验参数数量与上限（64），求值全部实参；
  *   若该函数已编译为 VM 字节码（f.vm 为 Some）则经 vm::invoke 调用；
  *   否则新建子环境绑定形参，在子上下文中求值函数体（无返回语句时返回
@@ -379,7 +379,7 @@ fn exec_call(rt: &Runtime, n: &Node, ctx: &mut Ctx) -> Result<Value> {
     if name == "喵叫" {
         for (_i, arg) in args.iter().enumerate() {
             // if i > 0 {
-                // print!(" ");
+            // print!(" ");
             // }
             let v = rt.exec(arg, ctx)?;
             print_val(&v);

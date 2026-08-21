@@ -816,17 +816,14 @@ pub fn invoke(engine: &VmEngine, idx: usize, args: &[i64]) -> crate::ast::Result
                 frame = new_frame;
             }
 
-            // 内置 喵叫：弹出 n 个实参，按序打印（空格分隔、末尾换行）。
+            // 内置 喵叫：弹出 n 个实参，按序打印（无分隔符、末尾换行）。
             Inst::CallPrint(n) => {
                 let mut vals = Vec::with_capacity(n as usize);
                 for _ in 0..n {
                     vals.push(frame.stack.pop().unwrap_or(VmVal::Int(0)));
                 }
                 vals.reverse();
-                for (i, v) in vals.iter().enumerate() {
-                    if i > 0 {
-                        print!(" ");
-                    }
+                for v in vals.iter() {
                     match v {
                         VmVal::Int(x) => print!("{}", x),
                         VmVal::Str(s) => print!("{}", s),

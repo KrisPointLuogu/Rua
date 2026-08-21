@@ -34,6 +34,16 @@ cargo build --release
 喵叫(10 + number)
 ```
 
+## 📚文档
+- [API 文档](docs/API.md) —— 模块结构与接口参考
+- 工作流程系列（docs/workflow/）：
+  - [01-总览](docs/workflow/01-总览.md) —— 一次运行的完整旅程
+  - [02-词法与语法分析](docs/workflow/02-词法与语法分析.md)
+  - [03-运行时](docs/workflow/03-运行时.md) —— 值、环境链、三层调用分流
+  - [04-快路径](docs/workflow/04-快路径.md) —— JIT 与字节码 VM
+  - [05-错误处理](docs/workflow/05-错误处理.md)
+  - [06-调试工具](docs/workflow/06-调试工具.md)
+
 ## 🧐已知事项
 - **环境兼容性提示**：Rust 版为纯标准库实现，Linux / macOS / Windows 均可编译运行，
   中文输出在 Windows 终端可能需要 `chcp 65001`（UTF-8）。

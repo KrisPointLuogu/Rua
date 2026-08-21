@@ -77,8 +77,8 @@ const JCC_GE: u8 = 13;
 
 /// 换行结束符（静态区，机器码取地址嵌入）。
 static JIT_ENDL_NL: [u8; 2] = *b"\n\0";
-/// 空格结束符。
-static JIT_ENDL_SP: [u8; 2] = *b" \0";
+/// 空结束符（非末参无分隔，对应 C 版 JIT_ENDL_NONE）。
+static JIT_ENDL_NONE: [u8; 2] = *b"\0\0";
 /// 整数格式化临时缓冲（JIT 代码写入，对应 C 版 jit_scratch）。
 static mut JIT_SCRATCH: [u8; 64] = [0u8; 64];
 
@@ -949,7 +949,7 @@ impl<'a> FnCompiler<'a> {
                 let endl = if i == args.len() - 1 {
                     JIT_ENDL_NL.as_ptr() as usize as i64
                 } else {
-                    JIT_ENDL_SP.as_ptr() as usize as i64
+                    JIT_ENDL_NONE.as_ptr() as usize as i64
                 };
                 self.em.mov64(RSI, endl);
                 self.em.mov64(RAX, jit_print as usize as i64);
